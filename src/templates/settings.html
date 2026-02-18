@@ -33,8 +33,13 @@
     .nav .btn-danger:hover { background: rgba(239,68,68,0.3); }
     .section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem; }
     .section h2 { font-size: 0.9rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
+    .section-desc { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
+    .section-desc a { color: var(--accent); text-decoration: none; }
+    .section-desc a:hover { text-decoration: underline; }
     .input-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
     .input-row:last-of-type { margin-bottom: 0; }
+    .field-wrap { display: flex; flex-direction: column; gap: 0.35rem; }
+    .field-wrap label { margin-bottom: 0; }
     label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.35rem; }
     input { flex: 1; min-width: 140px; padding: 0.65rem 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 0.9rem; }
     input::placeholder { color: var(--text-muted); opacity: 0.8; }
@@ -44,9 +49,13 @@
     .error-banner { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; padding: 1rem; border-radius: var(--radius); margin-bottom: 1rem; font-size: 0.9rem; }
     .success-banner { background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.3); color: #86efac; padding: 1rem; border-radius: var(--radius); margin-bottom: 1rem; font-size: 0.9rem; }
     .hidden { display: none !important; }
+    .theme-light { --bg: #f4f4f5; --surface: #fff; --surface-hover: #fafafa; --border: #e4e4e7; --text: #18181b; --text-muted: #71717a; }
+    .theme-light .error-banner { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); color: #b91c1c; }
+    .theme-light .success-banner { background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.3); color: #15803d; }
+    .theme-light .nav .btn-danger { background: rgba(239,68,68,0.15); color: #b91c1c; }
   </style>
 </head>
-<body>
+<body class="theme-{{ theme }}">
   <div class="page">
     <header>
       <h1>Settings</h1>
@@ -63,29 +72,43 @@
 
     <div class="section">
       <h2>Telecom API</h2>
+      <input type="hidden" id="telecom_fid" />
+      <input type="hidden" id="telecom_lang" />
       <div class="input-row">
-        <input type="text" id="telecom_base_url" placeholder="API URL (e.g. http://syriantelecom.com.sy/Sync/selfPortal.php)" />
+        <label for="telecom_base_url">API URL</label>
+        <input type="text" id="telecom_base_url" placeholder="e.g. http://syriantelecom.com.sy/Sync/selfPortal.php" />
       </div>
       <div class="input-row">
-        <input type="text" id="telecom_fid" placeholder="F_ID" style="max-width: 6rem;" />
+        <label for="telecom_username">Username</label>
         <input type="text" id="telecom_username" placeholder="Username" />
+      </div>
+      <div class="input-row">
+        <label for="telecom_password">Password</label>
         <input type="password" id="telecom_password" placeholder="Password" />
-        <input type="text" id="telecom_lang" placeholder="Lang (e.g. 1)" style="max-width: 5rem;" />
       </div>
     </div>
 
     <div class="section">
       <h2>Fetch schedule</h2>
+      <p class="section-desc">Fetch usage from the telecom API twice per day at these hours (0–23, local time).</p>
       <div class="input-row">
-        <input type="number" id="fetch_hour_1" placeholder="First fetch hour (0–23)" min="0" max="23" style="max-width: 10rem;" />
-        <input type="number" id="fetch_hour_2" placeholder="Second fetch hour (0–23)" min="0" max="23" style="max-width: 10rem;" />
+        <div class="field-wrap">
+          <label for="fetch_hour_1">First fetch hour</label>
+          <input type="number" id="fetch_hour_1" min="0" max="23" style="max-width: 6rem;" placeholder="8" />
+        </div>
+        <div class="field-wrap">
+          <label for="fetch_hour_2">Second fetch hour</label>
+          <input type="number" id="fetch_hour_2" min="0" max="23" style="max-width: 6rem;" placeholder="20" />
+        </div>
       </div>
     </div>
 
     <div class="section">
       <h2>Notifications</h2>
+      <p class="section-desc">Optional: get push alerts at 25%, 50%, 75%, 90%, and 100% usage. Use <a href="https://ntfy.sh" target="_blank" rel="noopener">ntfy</a> — leave blank to disable.</p>
       <div class="input-row">
-        <input type="text" id="ntfy_url" placeholder="ntfy URL (e.g. https://ntfy.markony.dev/HomeNet)" />
+        <label for="ntfy_url">ntfy topic URL</label>
+        <input type="text" id="ntfy_url" placeholder="e.g. https://ntfy.sh/YourTopic" />
       </div>
     </div>
 

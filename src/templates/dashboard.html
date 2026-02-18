@@ -68,9 +68,12 @@
     .loading { text-align: center; padding: 3rem; color: var(--text-muted); }
     .loading.spinner::after { content: ''; display: inline-block; width: 24px; height: 24px; margin-left: 0.5rem; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .theme-light { --bg: #f4f4f5; --surface: #fff; --surface-hover: #fafafa; --border: #e4e4e7; --text: #18181b; --text-muted: #71717a; --shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .theme-light .error-banner { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); color: #b91c1c; }
+    .theme-light .btn-danger { background: rgba(239,68,68,0.15); color: #b91c1c; }
   </style>
 </head>
-<body>
+<body class="theme-{{ theme }}">
   <div class="page">
     <header>
       <div>

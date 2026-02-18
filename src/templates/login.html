@@ -87,9 +87,11 @@
       font-family: inherit;
     }
     .btn:hover { background: var(--accent-dim); }
+    .theme-light { --bg: #f4f4f5; --surface: #fff; --surface-hover: #fafafa; --border: #e4e4e7; --text: #18181b; --text-muted: #71717a; }
+    .theme-light .error { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); color: #b91c1c; }
   </style>
 </head>
-<body>
+<body class="theme-{{ theme }}">
   <div class="login-box">
     <h1>Self Portal</h1>
     <p class="subtitle">Syrian Telecom usage dashboard</p>
@@ -98,7 +100,7 @@
     {% endif %}
     <form method="post" action="{{ url_for('login') }}">
       <label for="username">Username</label>
-      <input type="text" id="username" name="username" value="admin" required autocomplete="username" />
+      <input type="text" id="username" name="username" value="{{ admin_username }}" required autocomplete="username" />
       <label for="password">Password</label>
       <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="Password" />
       <button type="submit" class="btn">Log in</button>

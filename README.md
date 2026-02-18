@@ -21,15 +21,21 @@ A **Syrian Telecom Self Portal** monitor: fetches your internet package usage fr
 ## Quick start with Docker
 
 ```bash
-# Optional: set a strong JWT secret
+# Optional: set admin and options via env
 export JWT_SECRET=your-secret-here
+export ADMIN_USERNAME=admin
+export ADMIN_PASSWORD=your-dashboard-password
+export NTFY_URL=https://ntfy.sh/YourTopic
+export THEME=dark
 
 docker compose up -d
 ```
 
-Open **http://localhost:5000**. Default login: **admin** / **admin** — change the password in Settings.
+Open **http://localhost:5000**. Login with `ADMIN_USERNAME` / `ADMIN_PASSWORD` (default **admin** / **admin** if not set — change in Settings or set `ADMIN_PASSWORD`).
 
 Data is stored in `./portal_data/data.db`.
+
+**Environment variables** (all optional): `JWT_SECRET`, `ADMIN_USERNAME` (default: `admin`), `ADMIN_PASSWORD` (dashboard login; applied on startup), `NTFY_URL` (ntfy topic for push alerts; used when Settings field is empty), `THEME` (`dark` or `light`).
 
 ## Run locally (without Docker)
 
@@ -47,6 +53,10 @@ Data is stored in `./portal_data/data.db`.
    - `JWT_SECRET` — Secret for JWT cookies (default: `change-me-in-production`)
    - `PORT` — Server port (default: `5000`)
    - `PORTAL_DB` — Path to SQLite database (default: `src/data.db` when run from `src/`)
+   - `ADMIN_USERNAME` — Dashboard login username (default: `admin`)
+   - `ADMIN_PASSWORD` — Dashboard login password (applied on startup; overrides stored password)
+   - `NTFY_URL` — ntfy topic URL for push alerts (used when Settings value is empty)
+   - `THEME` — UI theme: `dark` or `light` (default: `dark`)
 
 3. **Start the app** (run from the `src` folder)
 

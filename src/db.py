@@ -17,7 +17,7 @@ DEFAULT_SETTINGS = {
     "telecom_lang": "1",
     "fetch_hour_1": "8",
     "fetch_hour_2": "20",
-    "ntfy_url": "https://ntfy.markony.dev/HomeNet",
+    "ntfy_url": "",
 }
 
 

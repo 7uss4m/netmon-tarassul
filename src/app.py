@@ -29,6 +29,10 @@ app.config["JWT_COOKIE_CSRF_PROTECT"] = False
 jwt = JWTManager(app)
 
 
+def _admin_username():
+    return (os.environ.get("ADMIN_USERNAME") or "admin").strip() or "admin"
+
+
 @app.before_request
 def init_app():
     db.init_db()
@@ -45,17 +49,25 @@ def index():
     return redirect(url_for("login"))
 
 
+@app.context_processor
+def inject_theme_and_admin():
+    return {
+        "theme": (os.environ.get("THEME") or "dark").strip().lower() or "dark",
+        "admin_username": _admin_username(),
+    }
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "GET":
         return render_template("login.html")
     username = (request.form.get("username") or "").strip()
     password = request.form.get("password") or ""
-    if username != "admin":
+    if username != _admin_username():
         return render_template("login.html", error="Invalid credentials"), 401
     if not db.verify_password(password):
         return render_template("login.html", error="Invalid credentials"), 401
-    token = create_access_token(identity="admin")
+    token = create_access_token(identity=username)
     resp = redirect(url_for("dashboard"))
     set_access_cookies(resp, token)
     return resp
@@ -164,6 +176,8 @@ def api_settings_password():
 
 def main():
     db.init_db()
+    if os.environ.get("ADMIN_PASSWORD"):
+        db.set_dashboard_password(os.environ.get("ADMIN_PASSWORD"))
     start_scheduler()
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=os.environ.get("FLASK_DEBUG", "false").lower() == "true")

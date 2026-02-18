@@ -3,6 +3,7 @@ Fetch Syrian Telecom API, compute usage percentage and exceed day, store in DB, 
 """
 import json
 import math
+import os
 from datetime import datetime, date, timedelta
 from calendar import monthrange
 import requests
@@ -61,7 +62,7 @@ def _compute_usage_and_exceed(product: dict) -> tuple[float | None, int | None, 
 
 
 def _send_ntfy(message: str) -> None:
-    url = db.get_setting("ntfy_url", "").strip()
+    url = (db.get_setting("ntfy_url", "").strip() or os.environ.get("NTFY_URL", "").strip())
     if not url:
         return
     try:
@@ -115,17 +116,51 @@ def run_fetch() -> dict:
             timeout=15,
         )
         r.raise_for_status()
+        raw = r.text
         data = r.json()
     except requests.RequestException as e:
         return {"ok": False, "error": str(e)}
     except (ValueError, json.JSONDecodeError) as e:
         return {"ok": False, "error": f"Invalid response: {e}"}
 
-    if not isinstance(data, list):
-        return {"ok": False, "error": "Response is not an array"}
+    # API may return a list directly, an object wrapping the list, or sometimes a number (error/session code).
+    # Some APIs send a leading number then the array (e.g. "0\n[...]") — try to extract the array from raw.
+    if isinstance(data, list):
+        products = data
+    elif isinstance(data, dict):
+        for key in ("data", "result", "products", "items"):
+            if isinstance(data.get(key), list):
+                products = data[key]
+                break
+        else:
+            return {
+                "ok": False,
+                "error": "Response is not an array (got object with keys: {})".format(
+                    ", ".join(data.keys()) if data else "empty"
+                ),
+            }
+    elif isinstance(data, (int, float)):
+        # Maybe raw body is "0\n[{...}]" or similar — try to parse array from first '[' onward
+        idx = raw.find("[")
+        if idx >= 0:
+            try:
+                products = json.loads(raw[idx:])
+                if not isinstance(products, list):
+                    products = None
+            except (ValueError, json.JSONDecodeError):
+                products = None
+        else:
+            products = None
+        if not products:
+            return {
+                "ok": False,
+                "error": "API returned a number ({}). Often means login failed or session invalid — check username and password.".format(data),
+            }
+    else:
+        return {"ok": False, "error": "Response is not an array (got {})".format(type(data).__name__)}
 
     filtered = [
-        p for p in data
+        p for p in products
         if p.get("ProductID") != "1024" and p.get("ProductName") != "Default1M"
     ]
     if not filtered:
