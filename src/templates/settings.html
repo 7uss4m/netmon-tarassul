@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings – Syrian Telecom Self Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f0f12;
+      --surface: #18181c;
+      --surface-hover: #1e1e24;
+      --border: #2a2a32;
+      --text: #e4e4e7;
+      --text-muted: #a1a1aa;
+      --accent: #22c55e;
+      --accent-dim: #16a34a;
+      --radius: 12px;
+      --radius-lg: 16px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.5; }
+    .page { max-width: 700px; margin: 0 auto; padding: 2rem 1.5rem; }
+    header { margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+    h1 { font-size: 1.5rem; font-weight: 700; color: var(--text); }
+    .nav { display: flex; gap: 0.75rem; align-items: center; }
+    .nav a, .nav button { padding: 0.5rem 1rem; border-radius: var(--radius); font-size: 0.9rem; font-weight: 600; text-decoration: none; font-family: inherit; cursor: pointer; border: none; }
+    .nav a { background: var(--surface-hover); color: var(--text); border: 1px solid var(--border); }
+    .nav a:hover { background: var(--border); }
+    .nav .btn-danger { background: rgba(239,68,68,0.2); color: #fca5a5; }
+    .nav .btn-danger:hover { background: rgba(239,68,68,0.3); }
+    .section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem; }
+    .section h2 { font-size: 0.9rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
+    .input-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+    .input-row:last-of-type { margin-bottom: 0; }
+    label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.35rem; }
+    input { flex: 1; min-width: 140px; padding: 0.65rem 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 0.9rem; }
+    input::placeholder { color: var(--text-muted); opacity: 0.8; }
+    .btn { padding: 0.65rem 1.25rem; border-radius: var(--radius); font-weight: 600; font-size: 0.9rem; cursor: pointer; border: none; font-family: inherit; }
+    .btn-primary { background: var(--accent); color: var(--bg); }
+    .btn-primary:hover { background: var(--accent-dim); }
+    .error-banner { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; padding: 1rem; border-radius: var(--radius); margin-bottom: 1rem; font-size: 0.9rem; }
+    .success-banner { background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.3); color: #86efac; padding: 1rem; border-radius: var(--radius); margin-bottom: 1rem; font-size: 0.9rem; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Settings</h1>
+      <nav class="nav">
+        <a href="/dashboard">Dashboard</a>
+        <form method="post" action="/logout" style="display:inline;">
+          <button type="submit" class="btn btn-danger">Log out</button>
+        </form>
+      </nav>
+    </header>
+
+    <div class="error-banner hidden" id="errorBanner"></div>
+    <div class="success-banner hidden" id="successBanner"></div>
+
+    <div class="section">
+      <h2>Telecom API</h2>
+      <div class="input-row">
+        <input type="text" id="telecom_base_url" placeholder="API URL (e.g. http://syriantelecom.com.sy/Sync/selfPortal.php)" />
+      </div>
+      <div class="input-row">
+        <input type="text" id="telecom_fid" placeholder="F_ID" style="max-width: 6rem;" />
+        <input type="text" id="telecom_username" placeholder="Username" />
+        <input type="password" id="telecom_password" placeholder="Password" />
+        <input type="text" id="telecom_lang" placeholder="Lang (e.g. 1)" style="max-width: 5rem;" />
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Fetch schedule</h2>
+      <div class="input-row">
+        <input type="number" id="fetch_hour_1" placeholder="First fetch hour (0–23)" min="0" max="23" style="max-width: 10rem;" />
+        <input type="number" id="fetch_hour_2" placeholder="Second fetch hour (0–23)" min="0" max="23" style="max-width: 10rem;" />
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Notifications</h2>
+      <div class="input-row">
+        <input type="text" id="ntfy_url" placeholder="ntfy URL (e.g. https://ntfy.markony.dev/HomeNet)" />
+      </div>
+    </div>
+
+    <div class="section">
+      <button type="button" class="btn btn-primary" id="btnSave">Save settings</button>
+    </div>
+  </div>
+
+  <script>
+    const errorBanner = document.getElementById('errorBanner');
+    const successBanner = document.getElementById('successBanner');
+
+    function showError(msg) {
+      successBanner.classList.add('hidden');
+      errorBanner.textContent = msg;
+      errorBanner.classList.remove('hidden');
+    }
+
+    function showSuccess(msg) {
+      errorBanner.classList.add('hidden');
+      successBanner.textContent = msg;
+      successBanner.classList.remove('hidden');
+    }
+
+    function hideMessages() {
+      errorBanner.classList.add('hidden');
+      successBanner.classList.add('hidden');
+    }
+
+    async function loadSettings() {
+      try {
+        const r = await fetch('/api/settings', { credentials: 'include' });
+        if (!r.ok) return;
+        const s = await r.json();
+        document.getElementById('telecom_base_url').value = s.telecom_base_url || '';
+        document.getElementById('telecom_fid').value = s.telecom_fid || '';
+        document.getElementById('telecom_username').value = s.telecom_username || '';
+        document.getElementById('telecom_password').value = s.telecom_password || '';
+        document.getElementById('telecom_lang').value = s.telecom_lang || '';
+        document.getElementById('fetch_hour_1').value = s.fetch_hour_1 || '';
+        document.getElementById('fetch_hour_2').value = s.fetch_hour_2 || '';
+        document.getElementById('ntfy_url').value = s.ntfy_url || '';
+      } catch (_) {}
+    }
+
+    async function saveSettings() {
+      hideMessages();
+      const payload = {
+        telecom_base_url: document.getElementById('telecom_base_url').value.trim(),
+        telecom_fid: document.getElementById('telecom_fid').value.trim(),
+        telecom_username: document.getElementById('telecom_username').value.trim(),
+        telecom_password: document.getElementById('telecom_password').value,
+        telecom_lang: document.getElementById('telecom_lang').value.trim(),
+        fetch_hour_1: document.getElementById('fetch_hour_1').value.trim() || '8',
+        fetch_hour_2: document.getElementById('fetch_hour_2').value.trim() || '20',
+        ntfy_url: document.getElementById('ntfy_url').value.trim()
+      };
+      try {
+        const r = await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload)
+        });
+        if (!r.ok) throw new Error('Save failed');
+        showSuccess('Settings saved.');
+      } catch (e) {
+        showError(e.message || 'Could not save settings');
+      }
+    }
+
+    document.getElementById('btnSave').addEventListener('click', saveSettings);
+    loadSettings();
+  </script>
+</body>
+</html>

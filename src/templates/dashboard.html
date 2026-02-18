@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Syrian Telecom – Self Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f0f12;
+      --surface: #18181c;
+      --surface-hover: #1e1e24;
+      --border: #2a2a32;
+      --text: #e4e4e7;
+      --text-muted: #a1a1aa;
+      --accent: #22c55e;
+      --accent-dim: #16a34a;
+      --warning: #eab308;
+      --danger: #ef4444;
+      --radius: 12px;
+      --radius-lg: 16px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.5; }
+    .page { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+    header { text-align: center; margin-bottom: 2.5rem; display: flex; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap; }
+    h1 { font-size: 1.75rem; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+    .subtitle { color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem; }
+    .input-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .input-row input { flex: 1; min-width: 120px; padding: 0.65rem 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 0.9rem; }
+    .input-row input::placeholder { color: var(--text-muted); opacity: 0.8; }
+    .btn { padding: 0.65rem 1.25rem; border-radius: var(--radius); font-weight: 600; font-size: 0.9rem; cursor: pointer; border: none; transition: transform 0.15s; font-family: inherit; }
+    .btn-primary { background: var(--accent); color: var(--bg); }
+    .btn-primary:hover { background: var(--accent-dim); transform: translateY(-1px); }
+    .btn-secondary { background: var(--surface-hover); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--border); }
+    .btn-danger { background: rgba(239,68,68,0.2); color: #fca5a5; }
+    .error-banner { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; padding: 1rem; border-radius: var(--radius); margin-bottom: 1rem; font-size: 0.9rem; }
+    .hidden { display: none !important; }
+    .products { display: flex; flex-direction: column; gap: 1.5rem; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; display: grid; grid-template-columns: 1fr auto; gap: 1.5rem; align-items: start; box-shadow: var(--shadow); }
+    @media (max-width: 640px) { .card { grid-template-columns: 1fr; } }
+    .card-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+    .card-title { font-size: 1.15rem; font-weight: 700; color: var(--text); }
+    .badge { font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 6px; font-weight: 600; text-transform: uppercase; }
+    .badge-volume { background: rgba(34,197,94,0.2); color: var(--accent); }
+    .meta-list { list-style: none; }
+    .meta-list li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.4rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    .meta-list li:last-child { border-bottom: none; }
+    .meta-list .label { color: var(--text-muted); }
+    .meta-list .value { font-weight: 500; text-align: right; }
+    .usage-ring-wrap { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+    .usage-ring { position: relative; width: 120px; height: 120px; }
+    .usage-ring svg { transform: rotate(-90deg); width: 100%; height: 100%; }
+    .usage-ring .bg { fill: none; stroke: var(--border); stroke-width: 10; }
+    .usage-ring .fill { fill: none; stroke: var(--accent); stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 0.5s ease; }
+    .usage-ring .fill.warning { stroke: var(--warning); }
+    .usage-ring .fill.danger { stroke: var(--danger); }
+    .usage-ring .center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+    .usage-percent { font-size: 1.5rem; font-weight: 700; color: var(--text); line-height: 1.2; }
+    .usage-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .chart-container { grid-column: 1 / -1; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); height: 200px; }
+    .chart-container canvas { max-height: 200px; }
+    .chart-legend { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; }
+    .loading { text-align: center; padding: 3rem; color: var(--text-muted); }
+    .loading.spinner::after { content: ''; display: inline-block; width: 24px; height: 24px; margin-left: 0.5rem; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div>
+        <h1>Syrian Telecom – Self Portal</h1>
+        <p class="subtitle">Usage from database (fetch twice daily or manually)</p>
+      </div>
+      <nav style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+        <a href="/settings" class="btn btn-secondary" style="text-decoration: none;">Settings</a>
+        <button type="button" class="btn btn-primary" id="btnFetchNow">Fetch now</button>
+        <form method="post" action="/logout" style="display: inline;">
+          <button type="submit" class="btn btn-danger">Log out</button>
+        </form>
+      </nav>
+    </header>
+
+    <div class="error-banner hidden" id="errorBanner"></div>
+
+    <main>
+      <div class="loading hidden" id="loading">Loading…</div>
+      <div class="products" id="products"></div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+    const productsEl = document.getElementById('products');
+    const loadingEl = document.getElementById('loading');
+    const errorBanner = document.getElementById('errorBanner');
+
+    function formatBytes(bytes) {
+      if (bytes == null || bytes < 0) return '—';
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function formatDateNoTime(str) {
+      if (!str || str.length < 10) return str || '—';
+      return str.slice(0, 10);
+    }
+
+    function periodEndMinusOne(str) {
+      if (!str || str.length < 10) return '—';
+      const d = new Date(str);
+      d.setDate(d.getDate() - 1);
+      return d.toISOString().slice(0, 10);
+    }
+
+    function setLoading(on) {
+      loadingEl.classList.toggle('hidden', !on);
+      if (on) loadingEl.classList.add('spinner'); else loadingEl.classList.remove('spinner');
+      productsEl.style.display = on ? 'none' : 'flex';
+    }
+
+    function showError(msg) {
+      errorBanner.textContent = msg;
+      errorBanner.classList.remove('hidden');
+    }
+
+    function hideError() {
+      errorBanner.classList.add('hidden');
+    }
+
+    function renderCard(row) {
+      const limitBytes = row.max_service_usage_mb * 1024 * 1024;
+      const usageBytes = row.month_accu_volume_kb * 1024;
+      const pct = row.usage_percent;
+      let fillClass = 'fill';
+      if (pct >= 100) fillClass += ' danger';
+      else if (pct >= 80) fillClass += ' warning';
+      const circumference = 2 * Math.PI * 55;
+      const offset = circumference - (pct / 100) * circumference;
+
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div>
+          <div class="card-header">
+            <span class="card-title">${escapeHtml(row.product_name)}</span>
+            <span class="badge badge-volume">Volume</span>
+          </div>
+          <ul class="meta-list">
+            <li><span class="label">Monthly limit</span><span class="value">${formatBytes(limitBytes)}</span></li>
+            <li><span class="label">This period used</span><span class="value">${formatBytes(usageBytes)}</span></li>
+            <li><span class="label">Period</span><span class="value">${formatDateNoTime(row.month_begin)} → ${formatDateNoTime(row.month_end)}</span></li>
+            <li><span class="label">Period end (-1 d)</span><span class="value">${periodEndMinusOne(row.month_end)}</span></li>
+          </ul>
+        </div>
+        <div class="usage-ring-wrap">
+          <div class="usage-ring">
+            <svg viewBox="0 0 120 120">
+              <circle class="bg" cx="60" cy="60" r="55" />
+              <circle class="fill ${fillClass}" cx="60" cy="60" r="55" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" />
+            </svg>
+            <div class="usage-ring center">
+              <span class="usage-percent">${Math.round(pct)}%</span>
+              <span class="usage-label">Used</span>
+            </div>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas class="product-chart"></canvas>
+          <p class="chart-legend"></p>
+        </div>
+      `;
+      return card;
+    }
+
+    function escapeHtml(s) {
+      if (s == null) return '';
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function buildChartFromHistory(history, latest) {
+      if (!latest || !history.length) return null;
+      const limitGB = (latest.max_service_usage_mb * 1024 * 1024) / (1024 ** 3);
+      const [y, m] = latest.month_begin.slice(0, 7).split('-').map(Number);
+      const days = new Date(y, m, 0).getDate();
+      const labels = [];
+      const usageData = [];
+      const limitData = [];
+      const dayToGb = {};
+      for (const r of history) {
+        const gb = (r.month_accu_volume_kb * 1024) / (1024 ** 3);
+        const day = parseInt(r.fetched_at.slice(8, 10), 10) || 1;
+        if (!dayToGb[day] || r.fetched_at > (dayToGb[day].fetched_at || '')) dayToGb[day] = { gb, fetched_at: r.fetched_at };
+      }
+      const sortedDays = Object.keys(dayToGb).map(Number).sort((a,b) => a - b);
+      let lastGb = 0;
+      for (let d = 1; d <= days; d++) {
+        labels.push(d);
+        if (dayToGb[d]) lastGb = dayToGb[d].gb;
+        usageData.push(lastGb);
+        limitData.push(limitGB);
+      }
+      const usageGB = (latest.month_accu_volume_kb * 1024) / (1024 ** 3);
+      const currentDay = new Date().getDate();
+      const exceedDay = latest.exceed_day;
+      return { labels, usageData, limitData, limitGB, usageGB, exceedDay, daysInMonth: days };
+    }
+
+    function buildChartFromLatestOnly(latest) {
+      if (!latest) return null;
+      const limitGB = (latest.max_service_usage_mb * 1024 * 1024) / (1024 ** 3);
+      const usageGB = (latest.month_accu_volume_kb * 1024) / (1024 ** 3);
+      const [y, m] = latest.month_begin.slice(0, 7).split('-').map(Number);
+      const days = new Date(y, m, 0).getDate();
+      const labels = [];
+      const usageData = [];
+      const limitData = [];
+      const currentDay = Math.min(new Date().getDate(), days);
+      for (let d = 1; d <= days; d++) {
+        labels.push(d);
+        usageData.push(d <= currentDay ? usageGB * d / currentDay : usageGB);
+        limitData.push(limitGB);
+      }
+      return { labels, usageData, limitData, limitGB, usageGB, exceedDay: latest.exceed_day, daysInMonth: days };
+    }
+
+    function createChart(canvas, data) {
+      if (!data || typeof Chart === 'undefined') return;
+      const legendEl = canvas.parentElement.querySelector('.chart-legend');
+      if (legendEl) {
+        legendEl.textContent = data.exceedDay != null && data.exceedDay <= data.daysInMonth
+          ? `At current rate, limit (${data.limitGB.toFixed(1)} GB) is reached around day ${data.exceedDay}.`
+          : `Usage: ${data.usageGB.toFixed(2)} GB. Limit: ${data.limitGB.toFixed(1)} GB.`;
+      }
+      if (canvas.chart) canvas.chart.destroy();
+      const ctx = canvas.getContext('2d');
+      canvas.chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.labels,
+          datasets: [
+            { label: 'Usage (GB)', data: data.usageData, borderColor: 'rgb(34, 197, 94)', backgroundColor: 'rgba(34, 197, 94, 0.1)', fill: true, tension: 0.2, pointRadius: 0 },
+            { label: 'Limit (GB)', data: data.limitData, borderColor: 'rgb(234, 179, 8)', borderDash: [4, 4], fill: false, tension: 0, pointRadius: 0 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#a1a1aa', font: { size: 11 } } } },
+          scales: {
+            x: { ticks: { color: '#a1a1aa', maxTicksLimit: 10 }, grid: { color: '#2a2a32' } },
+            y: { min: 0, ticks: { color: '#a1a1aa' }, grid: { color: '#2a2a32' } }
+          }
+        }
+      });
+    }
+
+    async function loadLatest() {
+      setLoading(true);
+      hideError();
+      try {
+        const r = await fetch('/api/latest', { credentials: 'include' });
+        if (!r.ok) throw new Error('Failed to load');
+        const row = await r.json();
+        productsEl.innerHTML = '';
+        if (!row) {
+          productsEl.innerHTML = '<p class="loading">No data yet. Configure settings and click Fetch now.</p>';
+          setLoading(false);
+          return;
+        }
+        const card = renderCard(row);
+        productsEl.appendChild(card);
+        const historyR = await fetch('/api/history?month_begin=' + encodeURIComponent(row.month_begin || ''), { credentials: 'include' });
+        const history = historyR.ok ? await historyR.json() : [];
+        const chartData = history.length ? buildChartFromHistory(history, row) : buildChartFromLatestOnly(row);
+        const canvas = card.querySelector('.product-chart');
+        if (canvas && chartData) createChart(canvas, chartData);
+      } catch (e) {
+        showError(e.message || 'Could not load data');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function fetchNow() {
+      hideError();
+      try {
+        const r = await fetch('/api/fetch', { method: 'POST', credentials: 'include' });
+        const data = await r.json();
+        if (!data.ok) throw new Error(data.error || 'Fetch failed');
+        await loadLatest();
+      } catch (e) {
+        showError(e.message || 'Fetch failed');
+      }
+    }
+
+    document.getElementById('btnFetchNow').addEventListener('click', fetchNow);
+
+    loadLatest();
+  </script>
+</body>
+</html>

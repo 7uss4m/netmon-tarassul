@@ -1,0 +1,14 @@
+__pycache__
+*.pyc
+*.pyo
+.git
+.gitignore
+data.db
+.env
+*.md
+.venv
+venv
+.cursor
+portal_data
+src/index.html
+src/proxy.js
