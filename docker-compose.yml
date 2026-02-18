@@ -10,7 +10,7 @@ services:
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
       - NTFY_URL=${NTFY_URL:-}
-      - THEME=${THEME:-dark}
+      - THEME=${THEME:-dark} # dark or light
     volumes:
       - ./data:/app/data
     restart: unless-stopped
