@@ -92,6 +92,13 @@ def settings_page():
     return render_template("settings.html")
 
 
+@app.route("/records")
+@jwt_required()
+def records_page():
+    rows = db.get_all_fetches(limit=500)
+    return render_template("records.html", records=rows)
+
+
 @app.route("/api/latest")
 @jwt_required()
 def api_latest():

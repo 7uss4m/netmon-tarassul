@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Records – Syrian Telecom Self Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f0f12;
+      --surface: #18181c;
+      --surface-hover: #1e1e24;
+      --border: #2a2a32;
+      --text: #e4e4e7;
+      --text-muted: #a1a1aa;
+      --accent: #22c55e;
+      --accent-dim: #16a34a;
+      --warning: #eab308;
+      --danger: #ef4444;
+      --radius: 12px;
+      --radius-lg: 16px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.5; }
+    .page { max-width: 1000px; margin: 0 auto; padding: 2rem 1.5rem; }
+    header { margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+    h1 { font-size: 1.5rem; font-weight: 700; color: var(--text); }
+    .nav { display: flex; gap: 0.75rem; align-items: center; }
+    .nav a, .nav button { padding: 0.5rem 1rem; border-radius: var(--radius); font-size: 0.9rem; font-weight: 600; text-decoration: none; font-family: inherit; cursor: pointer; border: none; }
+    .nav a { background: var(--surface-hover); color: var(--text); border: 1px solid var(--border); }
+    .nav a:hover { background: var(--border); }
+    .nav .btn-danger { background: rgba(239,68,68,0.2); color: #fca5a5; }
+    .nav .btn-danger:hover { background: rgba(239,68,68,0.3); }
+    .section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem; overflow-x: auto; }
+    .section h2 { font-size: 0.9rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
+    .records-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .records-table th, .records-table td { padding: 0.6rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+    .records-table th { color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+    .records-table tr:hover { background: var(--surface-hover); }
+    .records-table .num { text-align: right; }
+    .records-table .pct { font-weight: 600; }
+    .records-table .pct.high { color: var(--danger); }
+    .records-table .pct.mid { color: var(--warning); }
+    .records-table .pct.low { color: var(--accent); }
+    .empty { color: var(--text-muted); text-align: center; padding: 2rem; }
+    .theme-light { --bg: #f4f4f5; --surface: #fff; --surface-hover: #fafafa; --border: #e4e4e7; --text: #18181b; --text-muted: #71717a; }
+    .theme-light .nav .btn-danger { background: rgba(239,68,68,0.15); color: #b91c1c; }
+    .theme-light .records-table tr:hover { background: #fafafa; }
+  </style>
+</head>
+<body class="theme-{{ theme }}">
+  <div class="page">
+    <header>
+      <h1>Records</h1>
+      <nav class="nav">
+        <a href="/dashboard">Dashboard</a>
+        <a href="/settings">Settings</a>
+        <form method="post" action="/logout" style="display:inline;">
+          <button type="submit" class="btn btn-danger">Log out</button>
+        </form>
+      </nav>
+    </header>
+
+    <div class="section">
+      <h2>All fetch records (newest first)</h2>
+      {% if records %}
+      <table class="records-table">
+        <thead>
+          <tr>
+            <th>Fetched at</th>
+            <th>Product</th>
+            <th class="num">Usage %</th>
+            <th class="num">Used</th>
+            <th class="num">Limit</th>
+            <th>Period</th>
+            <th class="num">Exceed day</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in records %}
+          <tr>
+            <td>{{ r.fetched_at[:19] if r.fetched_at else '—' }}</td>
+            <td>{{ r.product_name or '—' }}</td>
+            <td class="num pct {% if r.usage_percent >= 100 %}high{% elif r.usage_percent >= 80 %}mid{% else %}low{% endif %}">{{ (r.usage_percent)|round(1) }}%</td>
+            <td class="num">{{ (r.month_accu_volume_kb / 1048576)|round(2) }} GB</td>
+            <td class="num">{{ (r.max_service_usage_mb / 1024)|round(1) }} GB</td>
+            <td>{{ r.month_begin or '—' }} → {{ r.month_end or '—' }}</td>
+            <td class="num">{{ r.exceed_day if r.exceed_day is not none else '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty">No records yet. Configure settings and run a fetch from the dashboard.</p>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>

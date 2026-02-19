@@ -162,6 +162,16 @@ def get_history_for_month(month_begin: str) -> list:
         return [dict(row) for row in cur.fetchall()]
 
 
+def get_all_fetches(limit: int = 500) -> list:
+    """All fetch records, newest first."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "SELECT * FROM fetches ORDER BY fetched_at DESC LIMIT ?",
+            (limit,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
 def notification_sent(month: str, threshold: int) -> bool:
     with get_conn() as conn:
         cur = conn.execute(
