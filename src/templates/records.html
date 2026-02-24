@@ -106,9 +106,6 @@
             <th>Product</th>
             <th class="num">Usage %</th>
             <th class="num">Used</th>
-            <th class="num">Limit</th>
-            <th>Period</th>
-            <th class="num">Exceed day</th>
           </tr>
         </thead>
         <tbody>
@@ -118,9 +115,6 @@
             <td>{{ r.product_name or '—' }}</td>
             <td class="num pct {% if r.usage_percent >= 100 %}high{% elif r.usage_percent >= 80 %}mid{% else %}low{% endif %}">{{ (r.usage_percent)|round(1) }}%</td>
             <td class="num">{{ (r.month_accu_volume_kb / 1048576)|round(2) }} GB</td>
-            <td class="num">{{ (r.max_service_usage_mb / 1024)|round(1) }} GB</td>
-            <td>{{ r.month_begin or '—' }} → {{ r.month_end or '—' }}</td>
-            <td class="num">{{ r.exceed_day if r.exceed_day is not none else '—' }}</td>
           </tr>
           {% endfor %}
         </tbody>

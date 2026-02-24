@@ -386,7 +386,7 @@ def _fetch_row_to_json(row: dict) -> dict:
 @app.route("/api/latest")
 @jwt_required()
 def api_latest():
-    row = db.get_latest_baseline_fetch()
+    row = db.get_latest_fetch()
     if not row:
         return jsonify(None)
     return jsonify(_fetch_row_to_json(row))
@@ -397,7 +397,7 @@ def api_latest():
 def api_history():
     month_begin = request.args.get("month_begin", "")
     if not month_begin:
-        latest = db.get_latest_baseline_fetch()
+        latest = db.get_latest_fetch()
         month_begin = (latest or {}).get("month_begin") or ""
     if not month_begin:
         return jsonify([])
