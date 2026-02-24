@@ -7,7 +7,7 @@ services:
       - http_proxy=
       - https_proxy=
       - no_proxy=*
-
+      - TZ=Asia/Damascus
     volumes:
       - ./data:/app/data
     restart: unless-stopped
