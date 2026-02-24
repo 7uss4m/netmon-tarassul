@@ -367,8 +367,18 @@ def settings_page():
 @app.route("/records")
 @jwt_required()
 def records_page():
-    rows = db.get_all_fetches(limit=500)
-    return render_template("records.html", records=rows)
+    page_size = 15
+    try:
+        page = int(request.args.get("page", "1") or "1")
+    except ValueError:
+        page = 1
+    if page < 1:
+        page = 1
+    offset = (page - 1) * page_size
+    rows = db.get_all_fetches(limit=page_size, offset=offset)
+    has_prev = page > 1
+    has_next = len(rows) == page_size
+    return render_template("records.html", records=rows, page=page, has_prev=has_prev, has_next=has_next)
 
 
 @app.route("/api/latest")

@@ -92,6 +92,22 @@
           {% endfor %}
         </tbody>
       </table>
+      <div style="display:flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; font-size: 0.85rem; color: var(--text-muted);">
+        <div>Showing up to 15 records per page.</div>
+        <div style="display:flex; gap:0.5rem;">
+          {% if has_prev %}
+          <a href="{{ url_for('records_page', page=page-1) }}" style="padding:0.35rem 0.75rem; border-radius:var(--radius); border:1px solid var(--border); text-decoration:none; color:var(--text); background:var(--surface-hover);">Previous</a>
+          {% else %}
+          <span style="padding:0.35rem 0.75rem; border-radius:var(--radius); border:1px solid var(--border); opacity:0.4; cursor:default;">Previous</span>
+          {% endif %}
+          <span>Page {{ page }}</span>
+          {% if has_next %}
+          <a href="{{ url_for('records_page', page=page+1) }}" style="padding:0.35rem 0.75rem; border-radius:var(--radius); border:1px solid var(--border); text-decoration:none; color:var(--text); background:var(--surface-hover);">Next</a>
+          {% else %}
+          <span style="padding:0.35rem 0.75rem; border-radius:var(--radius); border:1px solid var(--border); opacity:0.4; cursor:default;">Next</span>
+          {% endif %}
+        </div>
+      </div>
       {% else %}
       <p class="empty">No records yet. Configure settings and run a fetch from the dashboard.</p>
       {% endif %}

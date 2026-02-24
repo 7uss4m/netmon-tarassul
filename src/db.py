@@ -122,12 +122,12 @@ def get_history_for_month(month_begin: str) -> list:
         return [dict(row) for row in cur.fetchall()]
 
 
-def get_all_fetches(limit: int = 500) -> list:
-    """All fetch records, newest first."""
+def get_all_fetches(limit: int = 500, offset: int = 0) -> list:
+    """All fetch records, newest first (paginated)."""
     with get_conn() as conn:
         cur = conn.execute(
-            "SELECT * FROM fetches ORDER BY fetched_at DESC LIMIT ?",
-            (limit,),
+            "SELECT * FROM fetches ORDER BY fetched_at DESC LIMIT ? OFFSET ?",
+            (limit, offset),
         )
         return [dict(row) for row in cur.fetchall()]
 
