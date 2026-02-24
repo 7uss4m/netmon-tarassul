@@ -216,18 +216,25 @@
         const day = parseInt(r.fetched_at.slice(8, 10), 10) || 1;
         if (!dayToGb[day] || r.fetched_at > (dayToGb[day].fetched_at || '')) dayToGb[day] = { gb, fetched_at: r.fetched_at };
       }
-      const sortedDays = Object.keys(dayToGb).map(Number).sort((a,b) => a - b);
-      let lastGb = 0;
+      const sortedDays = Object.keys(dayToGb).map(Number).sort((a, b) => a - b);
+      const lastFetchDay = sortedDays.length ? sortedDays[sortedDays.length - 1] : 1;
+      const lastGb = dayToGb[lastFetchDay] ? dayToGb[lastFetchDay].gb : 0;
+      let lastKnown = 0;
       for (let d = 1; d <= days; d++) {
         labels.push(d);
-        if (dayToGb[d]) lastGb = dayToGb[d].gb;
-        usageData.push(lastGb);
+        if (dayToGb[d]) lastKnown = dayToGb[d].gb;
+        usageData.push(d <= lastFetchDay ? lastKnown : null);
         limitData.push(limitGB);
       }
       const usageGB = (latest.month_accu_volume_kb * 1024) / (1024 ** 3);
-      const currentDay = new Date().getDate();
       const exceedDay = latest.exceed_day;
-      return { labels, usageData, limitData, limitGB, usageGB, exceedDay, daysInMonth: days };
+      const projectionData = [];
+      for (let d = 1; d <= days; d++) {
+        if (d === lastFetchDay) projectionData.push(lastGb);
+        else if (exceedDay != null && d === exceedDay) projectionData.push(limitGB);
+        else projectionData.push(null);
+      }
+      return { labels, usageData, limitData, projectionData, limitGB, usageGB, exceedDay, daysInMonth: days };
     }
 
     function buildChartFromLatestOnly(latest) {
@@ -239,13 +246,20 @@
       const labels = [];
       const usageData = [];
       const limitData = [];
-      const currentDay = Math.min(new Date().getDate(), days);
+      const lastFetchDay = Math.min(parseInt(latest.fetched_at.slice(8, 10), 10) || new Date().getDate(), days);
+      const exceedDay = latest.exceed_day;
       for (let d = 1; d <= days; d++) {
         labels.push(d);
-        usageData.push(d <= currentDay ? usageGB * d / currentDay : usageGB);
+        usageData.push(d <= lastFetchDay ? (d === lastFetchDay ? usageGB : null) : null);
         limitData.push(limitGB);
       }
-      return { labels, usageData, limitData, limitGB, usageGB, exceedDay: latest.exceed_day, daysInMonth: days };
+      const projectionData = [];
+      for (let d = 1; d <= days; d++) {
+        if (d === lastFetchDay) projectionData.push(usageGB);
+        else if (exceedDay != null && exceedDay <= days && d === exceedDay) projectionData.push(limitGB);
+        else projectionData.push(null);
+      }
+      return { labels, usageData, limitData, projectionData, limitGB, usageGB, exceedDay, daysInMonth: days };
     }
 
     function createChart(canvas, data) {
@@ -258,14 +272,18 @@
       }
       if (canvas.chart) canvas.chart.destroy();
       const ctx = canvas.getContext('2d');
+      const datasets = [
+        { label: 'Usage (GB)', data: data.usageData, borderColor: 'rgb(34, 197, 94)', backgroundColor: 'rgba(34, 197, 94, 0.1)', fill: true, tension: 0.2, pointRadius: 2, spanGaps: false },
+        { label: 'Limit (GB)', data: data.limitData, borderColor: 'rgb(234, 179, 8)', borderDash: [4, 4], fill: false, tension: 0, pointRadius: 0 }
+      ];
+      if (data.projectionData && data.exceedDay != null && data.exceedDay <= data.daysInMonth) {
+        datasets.push({ label: 'Projected to exceed', data: data.projectionData, borderColor: 'rgba(34, 197, 94, 0.7)', borderDash: [6, 4], fill: false, tension: 0, pointRadius: 0, spanGaps: false });
+      }
       canvas.chart = new Chart(ctx, {
         type: 'line',
         data: {
           labels: data.labels,
-          datasets: [
-            { label: 'Usage (GB)', data: data.usageData, borderColor: 'rgb(34, 197, 94)', backgroundColor: 'rgba(34, 197, 94, 0.1)', fill: true, tension: 0.2, pointRadius: 0 },
-            { label: 'Limit (GB)', data: data.limitData, borderColor: 'rgb(234, 179, 8)', borderDash: [4, 4], fill: false, tension: 0, pointRadius: 0 }
-          ]
+          datasets: datasets
         },
         options: {
           responsive: true,
