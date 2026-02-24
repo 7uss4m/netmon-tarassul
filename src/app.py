@@ -378,7 +378,15 @@ def records_page():
     rows = db.get_all_fetches(limit=page_size, offset=offset)
     has_prev = page > 1
     has_next = len(rows) == page_size
-    return render_template("records.html", records=rows, page=page, has_prev=has_prev, has_next=has_next)
+    daily_usage = db.get_daily_usage(limit_days=31)
+    return render_template(
+        "records.html",
+        records=rows,
+        page=page,
+        has_prev=has_prev,
+        has_next=has_next,
+        daily_usage=daily_usage,
+    )
 
 
 @app.route("/api/latest")

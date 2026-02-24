@@ -127,7 +127,7 @@ def check_and_notify(
         _send_ntfy(msg)
 
 
-def run_fetch() -> dict:
+def run_fetch(is_midnight: bool = False) -> dict:
     """
     Fetch from Syrian Telecom API, parse, compute, store, notify.
     Returns {"ok": True, "message": "..."} or {"ok": False, "error": "..."}.
@@ -221,6 +221,7 @@ def run_fetch() -> dict:
             month_begin=month_begin,
             month_end=month_end,
             raw_json=json.dumps(product),
+            is_midnight=is_midnight,
         )
         check_and_notify(usage_percent, exceed_day, month_key, limit_gb, usage_gb)
 

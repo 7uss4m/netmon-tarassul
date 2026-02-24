@@ -92,14 +92,14 @@
 
     <div class="section">
       <h2>Fetch schedule</h2>
-      <p class="section-desc">Twice per day at these hours (0–23, local time).</p>
+      <p class="section-desc">One fetch at 00:00 (fixed, for daily baseline). One at the hour below (0–23, local time).</p>
       <div class="input-row">
         <div class="field-wrap">
-          <label for="fetch_hour_1">First fetch hour</label>
-          <input type="number" id="fetch_hour_1" min="0" max="23" style="max-width: 6rem;" />
+          <label>00:00 (baseline)</label>
+          <input type="text" value="00:00" disabled style="max-width: 6rem; opacity: 0.8;" />
         </div>
         <div class="field-wrap">
-          <label for="fetch_hour_2">Second fetch hour</label>
+          <label for="fetch_hour_2">Additional fetch hour</label>
           <input type="number" id="fetch_hour_2" min="0" max="23" style="max-width: 6rem;" />
         </div>
       </div>
@@ -171,7 +171,6 @@
         const s = await r.json();
         document.getElementById('telecom_username').value = s.telecom_username || '';
         document.getElementById('telecom_password').value = s.telecom_password || '';
-        document.getElementById('fetch_hour_1').value = s.fetch_hour_1 || '';
         document.getElementById('fetch_hour_2').value = s.fetch_hour_2 || '';
         document.getElementById('ntfy_url').value = s.ntfy_url || '';
         document.getElementById('ntfy_token').value = s.ntfy_token || '';
@@ -184,7 +183,6 @@
       hideMessages();
       const payload = {
         telecom_username: document.getElementById('telecom_username').value,
-        fetch_hour_1: document.getElementById('fetch_hour_1').value,
         fetch_hour_2: document.getElementById('fetch_hour_2').value,
         ntfy_url: document.getElementById('ntfy_url').value,
         theme: document.getElementById('theme').value

@@ -67,6 +67,11 @@ def init_db():
                 UNIQUE(month_begin, threshold)
             )
         """)
+        # Add is_midnight for daily usage (0 = normal fetch, 1 = 00:00 baseline)
+        cur = conn.execute("PRAGMA table_info(fetches)")
+        cols = {row[1] for row in cur.fetchall()}
+        if "is_midnight" not in cols:
+            conn.execute("ALTER TABLE fetches ADD COLUMN is_midnight INTEGER NOT NULL DEFAULT 0")
 
 
 def insert_fetch(
@@ -80,13 +85,14 @@ def insert_fetch(
     month_begin: str,
     month_end: str,
     raw_json: str | None = None,
+    is_midnight: bool = False,
 ) -> int:
     with get_conn() as conn:
         cur = conn.execute(
             """INSERT INTO fetches (
                 fetched_at, product_id, product_name, month_accu_volume_kb,
-                max_service_usage_mb, usage_percent, exceed_day, month_begin, month_end, raw_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                max_service_usage_mb, usage_percent, exceed_day, month_begin, month_end, raw_json, is_midnight
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 fetched_at,
                 product_id,
@@ -98,6 +104,7 @@ def insert_fetch(
                 month_begin,
                 month_end,
                 raw_json,
+                1 if is_midnight else 0,
             ),
         )
         return cur.lastrowid
@@ -149,6 +156,51 @@ def record_notification_sent(month_begin: str, threshold: int, sent_at: str) -> 
             "INSERT OR IGNORE INTO notifications (month_begin, threshold, sent_at) VALUES (?, ?, ?)",
             (month_begin, threshold, sent_at),
         )
+
+
+def get_daily_usage(limit_days: int = 31) -> list:
+    """
+    Daily usage per product: (volume at latest fetch of day) - (volume at midnight fetch of day).
+    Returns list of dicts: fetch_date, product_id, product_name, daily_usage_kb, daily_usage_gb.
+    Only days with both a midnight and a later fetch are included.
+    """
+    with get_conn() as conn:
+        cur = conn.execute(
+            """
+            WITH fd AS (
+                SELECT id, fetched_at, product_id, product_name, month_accu_volume_kb, is_midnight,
+                       date(fetched_at) AS d
+                FROM fetches
+                WHERE fetched_at >= date('now', ?)
+            ),
+            midnight AS (
+                SELECT product_id, d, month_accu_volume_kb AS vol
+                FROM fd WHERE is_midnight = 1
+            ),
+            latest AS (
+                SELECT product_id, d, product_name, month_accu_volume_kb AS vol
+                FROM fd f1
+                WHERE fetched_at = (SELECT max(fetched_at) FROM fd f2
+                                    WHERE f2.product_id = f1.product_id AND f2.d = f1.d)
+            )
+            SELECT l.d AS fetch_date, l.product_id, l.product_name,
+                   (l.vol - m.vol) AS daily_usage_kb
+            FROM latest l
+            JOIN midnight m ON l.product_id = m.product_id AND l.d = m.d
+            WHERE l.vol >= m.vol
+            ORDER BY l.d DESC, l.product_id
+            LIMIT 200
+            """,
+            (f"-{limit_days} days",),
+        )
+        rows = cur.fetchall()
+    out = []
+    for row in rows:
+        r = dict(row)
+        kb = r.get("daily_usage_kb") or 0
+        r["daily_usage_gb"] = round(kb / (1024 * 1024), 2)
+        out.append(r)
+    return out
 
 
 # Ensure schema exists as soon as db is imported
