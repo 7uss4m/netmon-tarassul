@@ -296,11 +296,21 @@
       }
     }
 
+    async function parseJsonResponse(r) {
+      const ct = (r.headers.get('Content-Type') || '').toLowerCase();
+      const text = await r.text();
+      if (ct.includes('application/json') && text && !text.trimStart().startsWith('<')) {
+        try { return JSON.parse(text); } catch (_) {}
+      }
+      if (r.status === 401) return { ok: false, error: 'Session expired. Please log in again.' };
+      return { ok: false, error: !r.ok ? (text.slice(0, 80) || 'Request failed') : 'Server returned invalid response. Try logging in again.' };
+    }
+
     async function fetchNow() {
       hideError();
       try {
         const r = await fetch('/api/fetch', { method: 'POST', credentials: 'include' });
-        const data = await r.json();
+        const data = await parseJsonResponse(r);
         if (!data.ok) throw new Error(data.error || 'Fetch failed');
         await loadLatest();
       } catch (e) {

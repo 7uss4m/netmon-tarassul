@@ -106,6 +106,51 @@ app.config["JWT_COOKIE_CSRF_PROTECT"] = False
 jwt = JWTManager(app)
 
 
+def _api_request() -> bool:
+    """True if the current request is to an API route (so we return JSON errors)."""
+    return request.path.startswith("/api/")
+
+
+@app.errorhandler(500)
+def handle_500(e):
+    """Return JSON for API errors so the frontend never gets HTML."""
+    if _api_request():
+        return jsonify({"ok": False, "error": str(e) if str(e) else "Internal server error"}), 500
+    raise
+
+
+@app.errorhandler(404)
+def handle_404(e):
+    if _api_request():
+        return jsonify({"ok": False, "error": "Not found"}), 404
+    raise
+
+
+@jwt.unauthorized_loader
+def jwt_unauthorized_callback(_reason):
+    """Return JSON when JWT is missing/invalid so API never returns HTML."""
+    if _api_request():
+        return jsonify({"ok": False, "error": "Login required"}), 401
+    from flask import redirect as flask_redirect
+    return flask_redirect(url_for("login"))
+
+
+@jwt.invalid_token_loader
+def jwt_invalid_token_callback(_reason):
+    if _api_request():
+        return jsonify({"ok": False, "error": "Invalid or expired session"}), 401
+    from flask import redirect as flask_redirect
+    return flask_redirect(url_for("login"))
+
+
+@jwt.expired_token_loader
+def jwt_expired_callback(_header, _payload):
+    if _api_request():
+        return jsonify({"ok": False, "error": "Session expired"}), 401
+    from flask import redirect as flask_redirect
+    return flask_redirect(url_for("login"))
+
+
 def _admin_username():
     return (os.environ.get("ADMIN_USERNAME") or "admin").strip() or "admin"
 
