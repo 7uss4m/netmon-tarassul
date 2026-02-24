@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Records – Syrian Telecom Self Portal</title>
+  <title>Records – Tarassul Netmon</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet" />
@@ -24,15 +24,18 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'DM Sans', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.5; }
-    .page { max-width: 1000px; margin: 0 auto; padding: 2rem 1.5rem; }
-    header { margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+    .page { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+    .app-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+    .app-brand { font-size: 1.25rem; font-weight: 700; color: var(--text); letter-spacing: -0.02em; text-decoration: none; }
+    .app-brand:hover { color: var(--accent); }
+    .app-tabs { display: flex; align-items: center; gap: 0; background: var(--surface-hover); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.25rem; }
+    .app-tab { padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; text-decoration: none; color: var(--text-muted); transition: background 0.15s, color 0.15s; }
+    .app-tab:hover { color: var(--text); background: var(--border); }
+    .app-tab.active { background: var(--surface); color: var(--text); border: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .app-actions { display: flex; align-items: center; gap: 0.5rem; }
+    .app-actions .btn-danger { padding: 0.5rem 1rem; border-radius: var(--radius); font-size: 0.9rem; font-weight: 600; cursor: pointer; border: none; font-family: inherit; background: rgba(239,68,68,0.2); color: #fca5a5; }
+    .app-actions .btn-danger:hover { background: rgba(239,68,68,0.3); }
     h1 { font-size: 1.5rem; font-weight: 700; color: var(--text); }
-    .nav { display: flex; gap: 0.75rem; align-items: center; }
-    .nav a, .nav button { padding: 0.5rem 1rem; border-radius: var(--radius); font-size: 0.9rem; font-weight: 600; text-decoration: none; font-family: inherit; cursor: pointer; border: none; }
-    .nav a { background: var(--surface-hover); color: var(--text); border: 1px solid var(--border); }
-    .nav a:hover { background: var(--border); }
-    .nav .btn-danger { background: rgba(239,68,68,0.2); color: #fca5a5; }
-    .nav .btn-danger:hover { background: rgba(239,68,68,0.3); }
     .section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem; overflow-x: auto; }
     .section h2 { font-size: 0.9rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
     .records-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
@@ -46,21 +49,24 @@
     .records-table .pct.low { color: var(--accent); }
     .empty { color: var(--text-muted); text-align: center; padding: 2rem; }
     .theme-light { --bg: #f4f4f5; --surface: #fff; --surface-hover: #fafafa; --border: #e4e4e7; --text: #18181b; --text-muted: #71717a; }
-    .theme-light .nav .btn-danger { background: rgba(239,68,68,0.15); color: #b91c1c; }
+    .theme-light .app-actions .btn-danger { background: rgba(239,68,68,0.15); color: #b91c1c; }
     .theme-light .records-table tr:hover { background: #fafafa; }
   </style>
 </head>
 <body class="theme-{{ theme }}">
   <div class="page">
-    <header>
-      <h1>Records</h1>
-      <nav class="nav">
-        <a href="/dashboard">Dashboard</a>
-        <a href="/settings">Settings</a>
+    <header class="app-header">
+      <a href="/dashboard" class="app-brand">Tarassul Netmon</a>
+      <nav class="app-tabs">
+        <a href="/dashboard" class="app-tab">Dashboard</a>
+        <a href="/records" class="app-tab active">Records</a>
+        <a href="/settings" class="app-tab">Settings</a>
+      </nav>
+      <div class="app-actions">
         <form method="post" action="/logout" style="display:inline;">
           <button type="submit" class="btn btn-danger">Log out</button>
         </form>
-      </nav>
+      </div>
     </header>
 
     <div class="section">

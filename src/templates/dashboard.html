@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Syrian Telecom – Self Portal</title>
+  <title>Dashboard – Tarassul Netmon</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet" />
@@ -25,8 +25,15 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'DM Sans', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.5; }
-    .page { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
-    header { text-align: center; margin-bottom: 2.5rem; display: flex; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap; }
+    .page { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+    .app-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+    .app-brand { font-size: 1.25rem; font-weight: 700; color: var(--text); letter-spacing: -0.02em; text-decoration: none; }
+    .app-brand:hover { color: var(--accent); }
+    .app-tabs { display: flex; align-items: center; gap: 0; background: var(--surface-hover); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.25rem; }
+    .app-tab { padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; text-decoration: none; color: var(--text-muted); transition: background 0.15s, color 0.15s; }
+    .app-tab:hover { color: var(--text); background: var(--border); }
+    .app-tab.active { background: var(--surface); color: var(--text); border: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .app-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
     h1 { font-size: 1.75rem; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
     .subtitle { color: var(--text-muted); font-size: 0.95rem; margin-top: 0.25rem; }
     .input-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
@@ -75,22 +82,25 @@
 </head>
 <body class="theme-{{ theme }}">
   <div class="page">
-    <header>
-      <div>
-        <h1>Syrian Telecom – Self Portal</h1>
-        <p class="subtitle">Usage from database (fetch twice daily or manually)</p>
-      </div>
-      <nav style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-        <a href="/records" class="btn btn-secondary" style="text-decoration: none;">Records</a>
-        <a href="/settings" class="btn btn-secondary" style="text-decoration: none;">Settings</a>
-        <button type="button" class="btn btn-primary" id="btnFetchNow">Fetch now</button>
+    <header class="app-header">
+      <a href="/dashboard" class="app-brand">Tarassul Netmon</a>
+      <nav class="app-tabs">
+        <a href="/dashboard" class="app-tab active">Dashboard</a>
+        <a href="/records" class="app-tab">Records</a>
+        <a href="/settings" class="app-tab">Settings</a>
+      </nav>
+      <div class="app-actions">
         <form method="post" action="/logout" style="display: inline;">
           <button type="submit" class="btn btn-danger">Log out</button>
         </form>
-      </nav>
+      </div>
     </header>
 
     <div class="error-banner hidden" id="errorBanner"></div>
+
+    <div style="margin-bottom: 1rem;">
+      <button type="button" class="btn btn-primary" id="btnFetchNow">Fetch now</button>
+    </div>
 
     <main>
       <div class="loading hidden" id="loading">Loading…</div>
