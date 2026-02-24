@@ -4,13 +4,10 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
-      - PORT=5000
-      - PORTAL_DB=/app/data/data.db
-      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
-      - NTFY_URL=${NTFY_URL:-}
-      - THEME=${THEME:-dark} # dark or light
+      - http_proxy=
+      - https_proxy=
+      - no_proxy=*
+
     volumes:
       - ./data:/app/data
     restart: unless-stopped

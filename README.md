@@ -7,9 +7,9 @@ A **Syrian Telecom Self Portal** monitor: fetches your internet package usage fr
 - **Automatic fetches** — Runs twice daily at configurable hours (default 8:00 and 20:00)
 - **Usage dashboard** — View current usage %, monthly volume, limit, and projected exceed day
 - **History** — Per-month fetch history
-- **ntfy alerts** — Push notifications at usage thresholds (one notification per threshold per month)
-- **Protected web UI** — JWT-based login; change password in Settings
-- **SQLite storage** — All data and settings in a single database file
+- **ntfy alerts** — Push notifications at usage thresholds (in-memory dedup per process; no DB storage)
+- **Protected web UI** — JWT-based login; admin username/password read from `data/netmon.conf`
+- **SQLite storage** — Database stores only **fetches**; all settings and auth live in `data/netmon.conf`
 
 > **Note:** Run this on a **local server** (e.g. at home). The Syrian Telecom API only accepts requests from Syrian IPs, so the app must run on a machine inside Syria (same network as your connection). Do not run it on a cloud/VPS abroad — fetches will fail.
 
@@ -20,22 +20,25 @@ A **Syrian Telecom Self Portal** monitor: fetches your internet package usage fr
 
 ## Quick start with Docker
 
-```bash
-# Optional: set admin and options via env
-export JWT_SECRET=your-secret-here
-export ADMIN_USERNAME=admin
-export ADMIN_PASSWORD=your-dashboard-password
-export NTFY_URL=https://ntfy.sh/YourTopic
-export THEME=dark
+1. **Create the config file** (copy from example and edit):
 
-docker compose up -d
-```
+   ```bash
+   mkdir -p data
+   cp env.example data/netmon.conf
+   # Edit data/netmon.conf: set JWT_SECRET, ADMIN_PASSWORD, Tarassul credentials, NTFY_URL, etc.
+   ```
 
-Open **http://localhost:5000**. Login with `ADMIN_USERNAME` / `ADMIN_PASSWORD` (default **admin** / **admin** if not set — change in Settings or set `ADMIN_PASSWORD`).
+2. **Run the app**:
 
-Data is stored in `./portal_data/data.db`.
+   ```bash
+   docker compose up -d
+   ```
 
-**Environment variables** (all optional): `JWT_SECRET`, `ADMIN_USERNAME` (default: `admin`), `ADMIN_PASSWORD` (dashboard login; applied on startup), `NTFY_URL` (ntfy topic for push alerts; used when Settings field is empty), `THEME` (`dark` or `light`).
+Open **http://localhost:5000**. Login with `ADMIN_USERNAME` / `ADMIN_PASSWORD` from `data/netmon.conf`. Default username is **admin** if not set.
+
+Data and config live in `./data/` (database: `./data/data.db`, config: `./data/netmon.conf`).
+
+**Config file** (`data/netmon.conf`): same format as `.env` (KEY=VALUE, `#` comments). All options are optional; see `env.example` for the list.
 
 ## Run locally (without Docker)
 
@@ -48,41 +51,39 @@ Data is stored in `./portal_data/data.db`.
    pip install -r requirements.txt
    ```
 
-2. **Optional: set environment variables**
-
-   - `JWT_SECRET` — Secret for JWT cookies (default: `change-me-in-production`)
-   - `PORT` — Server port (default: `5000`)
-   - `PORTAL_DB` — Path to SQLite database (default: `src/data.db` when run from `src/`)
-   - `ADMIN_USERNAME` — Dashboard login username (default: `admin`)
-   - `ADMIN_PASSWORD` — Dashboard login password (applied on startup; overrides stored password)
-   - `NTFY_URL` — ntfy topic URL for push alerts (used when Settings value is empty)
-   - `THEME` — UI theme: `dark` or `light` (default: `dark`)
-
-3. **Start the app** (run from the `src` folder)
+2. **Create the config file** (copy from example and edit):
 
    ```bash
-   cd src
-   python app.py
+   mkdir -p data
+   cp env.example data/netmon.conf
+   # Edit data/netmon.conf with your JWT_SECRET, admin password, Tarassul credentials, etc. DB is always data/data.db.
    ```
 
-   Then open **http://localhost:5000**.
+   The app loads config from `data/netmon.conf` (project root = parent of `src/`). Same format as `.env` (KEY=VALUE). See `env.example` for all keys.
 
-## Configuration (Settings)
+3. **Start the app** (run from the **project root** so `data/netmon.conf` is found)
 
-Configure in the web UI under **Settings**, or via `POST /api/settings` (JSON body). Stored in SQLite.
+   ```bash
+   python src/app.py
+   ```
 
-| Setting | Description |
-|--------|-------------|
-| `telecom_base_url` | Syrian Telecom Self Portal API URL |
-| `telecom_fid` | Portal F_ID (default `3`) |
-| `telecom_username` | Your telecom username |
-| `telecom_password` | Your telecom password |
-| `telecom_lang` | Language code (e.g. `1`) |
-| `fetch_hour_1` | First daily fetch hour (0–23) |
-| `fetch_hour_2` | Second daily fetch hour (0–23) |
-| `ntfy_url` | ntfy topic URL (e.g. `https://ntfy.sh/YourTopic`) |
+   Then open **http://localhost:5000**. Ensure `data/netmon.conf` exists (the app creates it from `env.example` on first run if missing).
 
-After saving settings, the scheduler is updated automatically.
+## Configuration
+
+All app settings are in **`data/netmon.conf`** (KEY=VALUE format). The Settings page in the UI is read-only and shows current values; edit the file and restart the app to apply changes.
+
+| Config key | Description |
+|------------|-------------|
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Dashboard login (read from config only) |
+| `TARASSUL_BASE_URL` | Syrian Telecom Self Portal API URL |
+| `TARASSUL_USERNAME` / `TARASSUL_PASSWORD` | Tarassul API credentials |
+| `TARASSUL_FID` / `TARASSUL_LANG` | Portal F_ID (default `3`) and language |
+| `FETCH_HOUR_1` / `FETCH_HOUR_2` | Daily fetch hours (0–23) |
+| `NTFY_URL` / `NTFY_TOKEN` | ntfy topic URL and optional auth token |
+| `THEME` | UI theme: `dark` or `light` |
+
+The **database** (`data/data.db`) stores only **fetches** (usage history). Notifications are not stored; ntfy is sent at most once per threshold per month per process run (in-memory).
 
 ## API (all require JWT cookie)
 
@@ -91,8 +92,9 @@ After saving settings, the scheduler is updated automatically.
 | GET | `/api/latest` | Latest fetch result |
 | GET | `/api/history?month_begin=YYYY-MM-DD` | History for a billing month |
 | POST | `/api/fetch` | Trigger a fetch now |
-| GET/POST | `/api/settings` | Read or update settings |
-| POST | `/api/settings/password` | Change dashboard password (JSON: `{"password": "new"}`) |
+| GET | `/api/settings` | Read current config (from netmon.conf; read-only) |
+| POST | `/api/settings/ntfy-test` | Send a test ntfy notification |
+| POST | `/api/settings/password` | Change admin password in netmon.conf (JSON: `{"password": "new"}`; admin only) |
 
 ## Project layout
 

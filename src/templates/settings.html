@@ -36,6 +36,7 @@
     .section-desc { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; }
     .section-desc a { color: var(--accent); text-decoration: none; }
     .section-desc a:hover { text-decoration: underline; }
+    .section-desc code { background: var(--surface-hover); padding: 0.15rem 0.35rem; border-radius: 4px; font-size: 0.85em; }
     .input-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
     .input-row:last-of-type { margin-bottom: 0; }
     .field-wrap { display: flex; flex-direction: column; gap: 0.35rem; }
@@ -71,49 +72,73 @@
     <div class="error-banner hidden" id="errorBanner"></div>
     <div class="success-banner hidden" id="successBanner"></div>
 
+    <p class="section-desc" style="margin-bottom: 1.5rem;">Settings are saved to <code>data/netmon.conf</code>. Changes apply immediately (no restart).</p>
+
     <div class="section">
-      <h2>Telecom API</h2>
-      <input type="hidden" id="telecom_fid" />
-      <input type="hidden" id="telecom_lang" />
+      <h2>Tarassul</h2>
       <div class="input-row">
-        <label for="telecom_base_url">API URL</label>
-        <input type="text" id="telecom_base_url" placeholder="e.g. http://syriantelecom.com.sy/Sync/selfPortal.php" />
+        <div class="field-wrap" style="flex: 1;">
+          <label for="telecom_username">Username</label>
+          <input type="text" id="telecom_username" placeholder="e.g. example@tarassul.sy" />
+        </div>
       </div>
       <div class="input-row">
-        <label for="telecom_username">Username</label>
-        <input type="text" id="telecom_username" placeholder="Username" />
-      </div>
-      <div class="input-row">
-        <label for="telecom_password">Password</label>
-        <input type="password" id="telecom_password" placeholder="Password" />
+        <div class="field-wrap" style="flex: 1;">
+          <label for="telecom_password">Password</label>
+          <input type="password" id="telecom_password" placeholder="Leave blank to keep current" autocomplete="off" />
+        </div>
       </div>
     </div>
 
     <div class="section">
       <h2>Fetch schedule</h2>
-      <p class="section-desc">Fetch usage from the telecom API twice per day at these hours (0–23, local time).</p>
+      <p class="section-desc">Twice per day at these hours (0–23, local time).</p>
       <div class="input-row">
         <div class="field-wrap">
           <label for="fetch_hour_1">First fetch hour</label>
-          <input type="number" id="fetch_hour_1" min="0" max="23" style="max-width: 6rem;" placeholder="8" />
+          <input type="number" id="fetch_hour_1" min="0" max="23" style="max-width: 6rem;" />
         </div>
         <div class="field-wrap">
           <label for="fetch_hour_2">Second fetch hour</label>
-          <input type="number" id="fetch_hour_2" min="0" max="23" style="max-width: 6rem;" placeholder="20" />
+          <input type="number" id="fetch_hour_2" min="0" max="23" style="max-width: 6rem;" />
         </div>
       </div>
     </div>
 
     <div class="section">
       <h2>Notifications</h2>
-      <p class="section-desc">Optional: get push alerts at 25%, 50%, 75%, 90%, and 100% usage. Use <a href="https://ntfy.sh" target="_blank" rel="noopener">ntfy</a> — leave blank to disable.</p>
+      <p class="section-desc">Optional: push alerts via <a href="https://ntfy.sh" target="_blank" rel="noopener">ntfy</a>.</p>
       <div class="input-row">
-        <label for="ntfy_url">ntfy topic URL</label>
-        <input type="text" id="ntfy_url" placeholder="e.g. https://ntfy.sh/YourTopic" />
+        <div class="field-wrap" style="flex: 1;">
+          <label for="ntfy_url">ntfy topic URL</label>
+          <input type="text" id="ntfy_url" placeholder="e.g. https://ntfy.sh/YourTopic" />
+        </div>
+      </div>
+      <div class="input-row">
+        <div class="field-wrap" style="flex: 1;">
+          <label for="ntfy_token">ntfy token (optional)</label>
+          <input type="password" id="ntfy_token" placeholder="Leave blank to keep current" autocomplete="off" />
+        </div>
+      </div>
+      <div class="input-row" style="align-items: flex-end;">
+        <button type="button" class="btn btn-secondary" id="btnNtfyTest">Test ntfy</button>
       </div>
     </div>
 
     <div class="section">
+      <h2>Appearance</h2>
+      <div class="input-row">
+        <div class="field-wrap">
+          <label for="theme">Theme</label>
+          <select id="theme" style="padding: 0.65rem 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 0.9rem; min-width: 10rem;">
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-row" style="margin-top: 1rem;">
       <button type="button" class="btn btn-primary" id="btnSave">Save settings</button>
     </div>
   </div>
@@ -144,29 +169,30 @@
         const r = await fetch('/api/settings', { credentials: 'include' });
         if (!r.ok) return;
         const s = await r.json();
-        document.getElementById('telecom_base_url').value = s.telecom_base_url || '';
-        document.getElementById('telecom_fid').value = s.telecom_fid || '';
         document.getElementById('telecom_username').value = s.telecom_username || '';
         document.getElementById('telecom_password').value = s.telecom_password || '';
-        document.getElementById('telecom_lang').value = s.telecom_lang || '';
         document.getElementById('fetch_hour_1').value = s.fetch_hour_1 || '';
         document.getElementById('fetch_hour_2').value = s.fetch_hour_2 || '';
         document.getElementById('ntfy_url').value = s.ntfy_url || '';
+        document.getElementById('ntfy_token').value = s.ntfy_token || '';
+        const themeEl = document.getElementById('theme');
+        if (themeEl) themeEl.value = (s.theme || 'dark').toLowerCase();
       } catch (_) {}
     }
 
     async function saveSettings() {
       hideMessages();
       const payload = {
-        telecom_base_url: document.getElementById('telecom_base_url').value.trim(),
-        telecom_fid: document.getElementById('telecom_fid').value.trim(),
-        telecom_username: document.getElementById('telecom_username').value.trim(),
-        telecom_password: document.getElementById('telecom_password').value,
-        telecom_lang: document.getElementById('telecom_lang').value.trim(),
-        fetch_hour_1: document.getElementById('fetch_hour_1').value.trim() || '8',
-        fetch_hour_2: document.getElementById('fetch_hour_2').value.trim() || '20',
-        ntfy_url: document.getElementById('ntfy_url').value.trim()
+        telecom_username: document.getElementById('telecom_username').value,
+        fetch_hour_1: document.getElementById('fetch_hour_1').value,
+        fetch_hour_2: document.getElementById('fetch_hour_2').value,
+        ntfy_url: document.getElementById('ntfy_url').value,
+        theme: document.getElementById('theme').value
       };
+      const pwd = document.getElementById('telecom_password').value;
+      if (pwd && pwd !== '********') payload.telecom_password = pwd;
+      const token = document.getElementById('ntfy_token').value;
+      if (token && token !== '********') payload.ntfy_token = token;
       try {
         const r = await fetch('/api/settings', {
           method: 'POST',
@@ -174,13 +200,43 @@
           credentials: 'include',
           body: JSON.stringify(payload)
         });
-        if (!r.ok) throw new Error('Save failed');
-        showSuccess('Settings saved.');
+        const data = await r.json();
+        if (data.ok) {
+          showSuccess('Settings saved.');
+          document.body.className = 'theme-' + (payload.theme || 'dark');
+          loadSettings();
+        } else {
+          showError(data.error || 'Save failed');
+        }
       } catch (e) {
-        showError(e.message || 'Could not save settings');
+        showError(e.message || 'Save failed');
       }
     }
 
+    async function testNtfy() {
+      hideMessages();
+      const url = document.getElementById('ntfy_url').value.trim();
+      const token = document.getElementById('ntfy_token').value;
+      if (!url) {
+        showError('Enter ntfy URL first.');
+        return;
+      }
+      try {
+        const r = await fetch('/api/settings/ntfy-test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ ntfy_url: url, ntfy_token: token })
+        });
+        const data = await r.json();
+        if (data.ok) showSuccess('Test notification sent.');
+        else showError(data.error || 'Test failed');
+      } catch (e) {
+        showError(e.message || 'Test failed');
+      }
+    }
+
+    document.getElementById('btnNtfyTest').addEventListener('click', testNtfy);
     document.getElementById('btnSave').addEventListener('click', saveSettings);
     loadSettings();
   </script>

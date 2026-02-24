@@ -1,10 +1,11 @@
 """
 APScheduler BackgroundScheduler: run fetcher twice daily at configurable hours.
+Hours are read from config (FETCH_HOUR_1, FETCH_HOUR_2 in data/netmon.conf).
 """
+import os
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-import db
 from fetcher import run_fetch
 
 _scheduler = None
@@ -28,8 +29,8 @@ def reschedule():
     if _scheduler is None:
         return
     _scheduler.remove_all_jobs()
-    h1 = int(db.get_setting("fetch_hour_1", "8") or "8")
-    h2 = int(db.get_setting("fetch_hour_2", "20") or "20")
+    h1 = int(os.environ.get("FETCH_HOUR_1") or "8")
+    h2 = int(os.environ.get("FETCH_HOUR_2") or "20")
     _scheduler.add_job(_job, CronTrigger(hour=h1, minute=0), id="fetch_1")
     _scheduler.add_job(_job, CronTrigger(hour=h2, minute=0), id="fetch_2")
 

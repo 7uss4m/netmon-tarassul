@@ -1,23 +1,26 @@
 """
 Fetch Syrian Telecom API, compute usage percentage and exceed day, store in DB, send ntfy notifications.
+All settings (Tarassul URL, credentials, ntfy) are read from config (netmon.conf → os.environ).
 """
 import json
 import math
 import os
 from datetime import datetime, date, timedelta
 from calendar import monthrange
+from urllib.parse import urlencode
 import requests
 
 import db
 
+DEFAULT_TARASSUL_BASE_URL = "http://syriantelecom.com.sy/Sync/selfPortal.php"
+
 
 def _build_url() -> str:
-    base = db.get_setting("telecom_base_url", "").strip()
-    fid = db.get_setting("telecom_fid", "3").strip()
-    user = db.get_setting("telecom_username", "").strip()
-    psw = db.get_setting("telecom_password", "").strip()
-    lang = db.get_setting("telecom_lang", "1").strip()
-    from urllib.parse import urlencode
+    base = (os.environ.get("TARASSUL_BASE_URL") or "").strip() or DEFAULT_TARASSUL_BASE_URL
+    fid = (os.environ.get("TARASSUL_FID") or "3").strip()
+    user = (os.environ.get("TARASSUL_USERNAME") or "").strip()
+    psw = (os.environ.get("TARASSUL_PASSWORD") or "").strip()
+    lang = (os.environ.get("TARASSUL_LANG") or "1").strip()
     qs = urlencode({"F_ID": fid, "userName": user, "userPswd": psw, "LangCo": lang})
     return f"{base.rstrip('/')}?{qs}"
 
@@ -61,14 +64,43 @@ def _compute_usage_and_exceed(product: dict) -> tuple[float | None, int | None, 
     return usage_percent, exceed_day, month_begin, month_end
 
 
+def _ntfy_headers() -> dict:
+    token = (os.environ.get("NTFY_TOKEN") or "").strip()
+    if token:
+        return {"Authorization": f"Bearer {token}"}
+    return {}
+
+
 def _send_ntfy(message: str) -> None:
-    url = (db.get_setting("ntfy_url", "").strip() or os.environ.get("NTFY_URL", "").strip())
+    url = (os.environ.get("NTFY_URL") or "").strip()
     if not url:
         return
     try:
-        requests.post(url, data=message.encode("utf-8"), timeout=10)
+        requests.post(url, data=message.encode("utf-8"), headers=_ntfy_headers(), timeout=10)
     except Exception:
         pass
+
+
+def send_ntfy_test(url: str, token: str = "") -> dict:
+    """Send a test notification. Returns {\"ok\": True} or {\"ok\": False, \"error\": \"...\"}."""
+    url = (url or "").strip()
+    if not url:
+        return {"ok": False, "error": "ntfy URL is empty"}
+    headers = {}
+    if (token or "").strip():
+        headers["Authorization"] = f"Bearer {token.strip()}"
+    try:
+        r = requests.post(
+            url,
+            data="Netmon test notification".encode("utf-8"),
+            headers=headers,
+            timeout=10,
+        )
+        if not r.ok:
+            return {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}"}
+        return {"ok": True}
+    except requests.RequestException as e:
+        return {"ok": False, "error": str(e)}
 
 
 def check_and_notify(
@@ -78,21 +110,21 @@ def check_and_notify(
     limit_gb: float,
     usage_gb: float,
 ) -> None:
-    """Send ntfy at 25, 50, 75, 90, 100 if not already sent this month."""
+    """Send ntfy at 25, 50, 75, 90, 100; at most once per (month, threshold), persisted in DB."""
     thresholds = [25, 50, 75, 90, 100]
-    now = datetime.utcnow().isoformat() + "Z"
+    sent_at = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
     for t in thresholds:
         if usage_percent < t:
             continue
-        if db.notification_sent(month, t):
+        if db.notification_already_sent(month, t):
             continue
+        db.record_notification_sent(month, t, sent_at)
         if t == 100:
-            msg = "Internet package reached its limit!"
+            msg = "Limit reached. Your internet package has hit 100% usage."
         else:
             ex = f" Expected to exceed limit on day {exceed_day}." if exceed_day else ""
             msg = f"Usage at {t}% ({usage_gb:.2f} GB / {limit_gb:.1f} GB).{ex}"
         _send_ntfy(msg)
-        db.record_notification(month, t, now)
 
 
 def run_fetch() -> dict:
@@ -101,10 +133,12 @@ def run_fetch() -> dict:
     Returns {"ok": True, "message": "..."} or {"ok": False, "error": "..."}.
     """
     url = _build_url()
-    if not db.get_setting("telecom_base_url", "").strip():
-        return {"ok": False, "error": "Telecom URL not configured"}
-    if not db.get_setting("telecom_username", "").strip():
-        return {"ok": False, "error": "Telecom username not configured"}
+    base = (os.environ.get("TARASSUL_BASE_URL") or "").strip() or DEFAULT_TARASSUL_BASE_URL
+    user = (os.environ.get("TARASSUL_USERNAME") or "").strip()
+    if not base:
+        return {"ok": False, "error": "Tarassul URL not configured (set TARASSUL_BASE_URL in data/netmon.conf)"}
+    if not user:
+        return {"ok": False, "error": "Tarassul username not configured (set TARASSUL_USERNAME in data/netmon.conf)"}
 
     try:
         r = requests.get(
@@ -124,7 +158,6 @@ def run_fetch() -> dict:
         return {"ok": False, "error": f"Invalid response: {e}"}
 
     # API may return a list directly, an object wrapping the list, or sometimes a number (error/session code).
-    # Some APIs send a leading number then the array (e.g. "0\n[...]") — try to extract the array from raw.
     if isinstance(data, list):
         products = data
     elif isinstance(data, dict):
@@ -140,7 +173,6 @@ def run_fetch() -> dict:
                 ),
             }
     elif isinstance(data, (int, float)):
-        # Maybe raw body is "0\n[{...}]" or similar — try to parse array from first '[' onward
         idx = raw.find("[")
         if idx >= 0:
             try:
@@ -154,7 +186,7 @@ def run_fetch() -> dict:
         if not products:
             return {
                 "ok": False,
-                "error": "API returned a number ({}). Often means login failed or session invalid — check username and password.".format(data),
+                "error": "API returned a number ({}). Often means login failed or session invalid — check username and password in data/netmon.conf.".format(data),
             }
     else:
         return {"ok": False, "error": "Response is not an array (got {})".format(type(data).__name__)}
