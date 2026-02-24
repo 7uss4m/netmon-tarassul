@@ -24,6 +24,13 @@ def get_conn():
         conn.close()
 
 
+def _notifications_schema_ok(conn: sqlite3.Connection) -> bool:
+    """True if notifications table has expected columns (month_begin, threshold, sent_at)."""
+    cur = conn.execute("PRAGMA table_info(notifications)")
+    names = {row[1] for row in cur.fetchall()}
+    return "month_begin" in names and "threshold" in names and "sent_at" in names
+
+
 def init_db():
     db_dir = os.path.dirname(DB_PATH)
     if db_dir:
@@ -44,6 +51,13 @@ def init_db():
                 raw_json TEXT
             )
         """)
+        # Recreate notifications if it exists with wrong schema (e.g. old deployment)
+        cur = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='notifications'"
+        )
+        if cur.fetchone():
+            if not _notifications_schema_ok(conn):
+                conn.execute("DROP TABLE notifications")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS notifications (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
