@@ -355,6 +355,25 @@ def records_page():
         page = 1
     offset = (page - 1) * page_size
     rows = db.get_all_fetches(limit=page_size, offset=offset)
+    # Compute usage since the previous fetch (within this page, per product)
+    for idx, row in enumerate(rows):
+        delta_kb = None
+        for j in range(idx + 1, len(rows)):
+            other = rows[j]
+            if other.get("product_id") == row.get("product_id"):
+                try:
+                    cur_kb = int(row.get("month_accu_volume_kb") or 0)
+                    prev_kb = int(other.get("month_accu_volume_kb") or 0)
+                except (TypeError, ValueError):
+                    break
+                diff = cur_kb - prev_kb
+                if diff >= 0:
+                    delta_kb = diff
+                break
+        if delta_kb is not None:
+            row["usage_since_last_fetch_gb"] = round(delta_kb / (1024 * 1024), 2)
+        else:
+            row["usage_since_last_fetch_gb"] = None
     has_prev = page > 1
     has_next = len(rows) == page_size
     daily_usage = db.get_daily_usage(limit_days=31)

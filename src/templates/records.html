@@ -103,18 +103,24 @@
         <thead>
           <tr>
             <th>Fetched at</th>
-            <th>Product</th>
             <th class="num">Usage %</th>
             <th class="num">Used</th>
+            <th class="num">Since last fetch</th>
           </tr>
         </thead>
         <tbody>
           {% for r in records %}
           <tr>
-            <td>{{ r.fetched_at[:19] if r.fetched_at else '—' }}</td>
-            <td>{{ r.product_name or '—' }}</td>
+            <td>{{ r.fetched_at[:16].replace('T', ' ') if r.fetched_at else '—' }}</td>
             <td class="num pct {% if r.usage_percent >= 100 %}high{% elif r.usage_percent >= 80 %}mid{% else %}low{% endif %}">{{ (r.usage_percent)|round(1) }}%</td>
             <td class="num">{{ (r.month_accu_volume_kb / 1048576)|round(2) }} GB</td>
+            <td class="num">
+              {% if r.usage_since_last_fetch_gb is not none %}
+                {{ (r.usage_since_last_fetch_gb)|round(2) }} GB
+              {% else %}
+                —
+              {% endif %}
+            </td>
           </tr>
           {% endfor %}
         </tbody>
