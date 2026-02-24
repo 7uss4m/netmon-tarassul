@@ -227,12 +227,18 @@
         limitData.push(limitGB);
       }
       const usageGB = (latest.month_accu_volume_kb * 1024) / (1024 ** 3);
-      const exceedDay = latest.exceed_day;
+      const exceedDayRaw = latest.exceed_day;
+      const exceedDay = exceedDayRaw != null ? Math.min(days, Math.ceil(Number(exceedDayRaw))) : null;
       const projectionData = [];
-      for (let d = 1; d <= days; d++) {
-        if (d === lastFetchDay) projectionData.push(lastGb);
-        else if (exceedDay != null && d === exceedDay) projectionData.push(limitGB);
-        else projectionData.push(null);
+      if (exceedDay != null && exceedDay > lastFetchDay) {
+        for (let d = 1; d <= days; d++) {
+          if (d < lastFetchDay || d > exceedDay) projectionData.push(null);
+          else if (d === lastFetchDay) projectionData.push(lastGb);
+          else if (d === exceedDay) projectionData.push(limitGB);
+          else projectionData.push(lastGb + (limitGB - lastGb) * (d - lastFetchDay) / (exceedDay - lastFetchDay));
+        }
+      } else {
+        for (let d = 1; d <= days; d++) projectionData.push(null);
       }
       return { labels, usageData, limitData, projectionData, limitGB, usageGB, exceedDay, daysInMonth: days };
     }
@@ -247,17 +253,23 @@
       const usageData = [];
       const limitData = [];
       const lastFetchDay = Math.min(parseInt(latest.fetched_at.slice(8, 10), 10) || new Date().getDate(), days);
-      const exceedDay = latest.exceed_day;
+      const exceedDayRaw = latest.exceed_day;
+      const exceedDay = exceedDayRaw != null ? Math.min(days, Math.ceil(Number(exceedDayRaw))) : null;
       for (let d = 1; d <= days; d++) {
         labels.push(d);
         usageData.push(d <= lastFetchDay ? (d === lastFetchDay ? usageGB : null) : null);
         limitData.push(limitGB);
       }
       const projectionData = [];
-      for (let d = 1; d <= days; d++) {
-        if (d === lastFetchDay) projectionData.push(usageGB);
-        else if (exceedDay != null && exceedDay <= days && d === exceedDay) projectionData.push(limitGB);
-        else projectionData.push(null);
+      if (exceedDay != null && exceedDay > lastFetchDay) {
+        for (let d = 1; d <= days; d++) {
+          if (d < lastFetchDay || d > exceedDay) projectionData.push(null);
+          else if (d === lastFetchDay) projectionData.push(usageGB);
+          else if (d === exceedDay) projectionData.push(limitGB);
+          else projectionData.push(usageGB + (limitGB - usageGB) * (d - lastFetchDay) / (exceedDay - lastFetchDay));
+        }
+      } else {
+        for (let d = 1; d <= days; d++) projectionData.push(null);
       }
       return { labels, usageData, limitData, projectionData, limitGB, usageGB, exceedDay, daysInMonth: days };
     }
