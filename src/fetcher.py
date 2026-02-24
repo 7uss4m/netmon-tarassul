@@ -198,20 +198,18 @@ def run_fetch(is_baseline: bool = False) -> dict:
         month_key = month_begin[:7] if month_begin else ""
         product_id_str = str(product.get("ProductID", ""))
 
-        # Refine exceed_day prediction using daily_usage history if available
-        try:
-            predicted = db.predict_exceed_day_from_daily_usage(
-                product_id=product_id_str,
-                month_begin=month_begin,
-                current_usage_gb=usage_gb,
-                limit_gb=limit_gb,
-            )
-        except Exception:
-            predicted = None
-        if predicted is not None:
-            exceed_day = predicted
-
         if is_baseline:
+            try:
+                predicted = db.predict_exceed_day_from_daily_usage(
+                    product_id=product_id_str,
+                    month_begin=month_begin,
+                    current_usage_gb=usage_gb,
+                    limit_gb=limit_gb,
+                )
+            except Exception:
+                predicted = None
+            if predicted is not None:
+                exceed_day = predicted
             db.insert_baseline_fetch(
                 fetched_at=fetched_at,
                 product_id=product_id_str,

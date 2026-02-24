@@ -278,9 +278,13 @@
       if (!data || typeof Chart === 'undefined') return;
       const legendEl = canvas.parentElement.querySelector('.chart-legend');
       if (legendEl) {
-        legendEl.textContent = data.exceedDay != null && data.exceedDay <= data.daysInMonth
-          ? `At current rate, limit (${data.limitGB.toFixed(1)} GB) is reached around day ${data.exceedDay}.`
-          : `Usage: ${data.usageGB.toFixed(2)} GB. Limit: ${data.limitGB.toFixed(1)} GB.`;
+        if (!data.hasDailyHistory) {
+          legendEl.textContent = 'Exceed-day prediction will appear after the first daily baseline fetch (within 24 hours).';
+        } else if (data.exceedDay != null && data.exceedDay <= data.daysInMonth) {
+          legendEl.textContent = `At current rate, limit (${data.limitGB.toFixed(1)} GB) is reached around day ${data.exceedDay}.`;
+        } else {
+          legendEl.textContent = `Usage: ${data.usageGB.toFixed(2)} GB. Limit: ${data.limitGB.toFixed(1)} GB.`;
+        }
       }
       if (canvas.chart) canvas.chart.destroy();
       const ctx = canvas.getContext('2d');
@@ -288,7 +292,7 @@
         { label: 'Usage (GB)', data: data.usageData, borderColor: 'rgb(34, 197, 94)', backgroundColor: 'rgba(34, 197, 94, 0.1)', fill: true, tension: 0.2, pointRadius: 2, spanGaps: false },
         { label: 'Limit (GB)', data: data.limitData, borderColor: 'rgba(234, 179, 8, 0.5)', borderDash: [10, 3], fill: false, tension: 0, pointRadius: 0 }
       ];
-      if (data.projectionData && data.exceedDay != null && data.exceedDay <= data.daysInMonth) {
+      if (data.hasDailyHistory && data.projectionData && data.exceedDay != null && data.exceedDay <= data.daysInMonth) {
         datasets.push({ label: 'Projected to exceed', data: data.projectionData, borderColor: 'rgba(34, 197, 94, 0.7)', borderDash: [6, 4], fill: false, tension: 0, pointRadius: 0, spanGaps: false });
       }
       canvas.chart = new Chart(ctx, {
@@ -326,9 +330,13 @@
         productsEl.appendChild(card);
         const historyR = await fetch('/api/history?month_begin=' + encodeURIComponent(row.month_begin || ''), { credentials: 'include' });
         const history = historyR.ok ? await historyR.json() : [];
-        const chartData = history.length ? buildChartFromHistory(history, row) : buildChartFromLatestOnly(row);
+        const hasDailyHistory = history.length > 0;
+        const chartData = hasDailyHistory ? buildChartFromHistory(history, row) : buildChartFromLatestOnly(row);
         const canvas = card.querySelector('.product-chart');
-        if (canvas && chartData) createChart(canvas, chartData);
+        if (canvas && chartData) {
+          chartData.hasDailyHistory = hasDailyHistory;
+          createChart(canvas, chartData);
+        }
       } catch (e) {
         showError(e.message || 'Could not load data');
       } finally {
