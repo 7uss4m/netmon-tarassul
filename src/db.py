@@ -1,7 +1,3 @@
-"""
-SQLite database for Netmon Tarassul.
-Schema: fetches + notifications (ntfy sent per month/threshold). All settings and admin auth come from netmon.conf.
-"""
 import os
 import sqlite3
 from contextlib import contextmanager
@@ -25,7 +21,6 @@ def get_conn():
 
 
 def _notifications_schema_ok(conn: sqlite3.Connection) -> bool:
-    """True if notifications table has expected columns (month_begin, threshold, sent_at)."""
     cur = conn.execute("PRAGMA table_info(notifications)")
     names = {row[1] for row in cur.fetchall()}
     return "month_begin" in names and "threshold" in names and "sent_at" in names
@@ -51,7 +46,6 @@ def init_db():
                 raw_json TEXT
             )
         """)
-        # Recreate notifications if it exists with wrong schema (e.g. old deployment)
         cur = conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='notifications'"
         )
@@ -67,11 +61,25 @@ def init_db():
                 UNIQUE(month_begin, threshold)
             )
         """)
-        # Add is_midnight for daily usage (0 = normal fetch, 1 = 00:00 baseline)
         cur = conn.execute("PRAGMA table_info(fetches)")
         cols = {row[1] for row in cur.fetchall()}
         if "is_midnight" not in cols:
             conn.execute("ALTER TABLE fetches ADD COLUMN is_midnight INTEGER NOT NULL DEFAULT 0")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS baseline_fetches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fetched_at TEXT NOT NULL,
+                product_id TEXT NOT NULL,
+                product_name TEXT NOT NULL,
+                month_accu_volume_kb INTEGER NOT NULL,
+                max_service_usage_mb INTEGER NOT NULL,
+                usage_percent REAL NOT NULL,
+                exceed_day INTEGER,
+                month_begin TEXT NOT NULL,
+                month_end TEXT NOT NULL,
+                raw_json TEXT
+            )
+        """)
 
 
 def insert_fetch(
@@ -110,6 +118,40 @@ def insert_fetch(
         return cur.lastrowid
 
 
+def insert_baseline_fetch(
+    fetched_at: str,
+    product_id: str,
+    product_name: str,
+    month_accu_volume_kb: int,
+    max_service_usage_mb: int,
+    usage_percent: float,
+    exceed_day: int | None,
+    month_begin: str,
+    month_end: str,
+    raw_json: str | None = None,
+) -> int:
+    with get_conn() as conn:
+        cur = conn.execute(
+            """INSERT INTO baseline_fetches (
+                fetched_at, product_id, product_name, month_accu_volume_kb,
+                max_service_usage_mb, usage_percent, exceed_day, month_begin, month_end, raw_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                fetched_at,
+                product_id,
+                product_name,
+                month_accu_volume_kb,
+                max_service_usage_mb,
+                usage_percent,
+                exceed_day,
+                month_begin,
+                month_end,
+                raw_json,
+            ),
+        )
+        return cur.lastrowid
+
+
 def get_latest_fetch():
     with get_conn() as conn:
         cur = conn.execute(
@@ -119,8 +161,16 @@ def get_latest_fetch():
         return dict(row) if row else None
 
 
+def get_latest_baseline_fetch():
+    with get_conn() as conn:
+        cur = conn.execute(
+            "SELECT * FROM baseline_fetches ORDER BY fetched_at DESC LIMIT 1"
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
 def get_history_for_month(month_begin: str) -> list:
-    """month_begin: YYYY-MM-DD (start of billing month)."""
     with get_conn() as conn:
         cur = conn.execute(
             "SELECT * FROM fetches WHERE month_begin = ? ORDER BY fetched_at ASC",
@@ -129,18 +179,25 @@ def get_history_for_month(month_begin: str) -> list:
         return [dict(row) for row in cur.fetchall()]
 
 
-def get_all_fetches(limit: int = 500, offset: int = 0) -> list:
-    """All fetch records, newest first (paginated)."""
+def get_history_for_month_baseline(month_begin: str) -> list:
     with get_conn() as conn:
         cur = conn.execute(
-            "SELECT * FROM fetches ORDER BY fetched_at DESC LIMIT ? OFFSET ?",
+            "SELECT * FROM baseline_fetches WHERE month_begin = ? ORDER BY fetched_at ASC",
+            (month_begin,),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+def get_all_fetches(limit: int = 500, offset: int = 0) -> list:
+    with get_conn() as conn:
+        cur = conn.execute(
+            "SELECT * FROM fetches WHERE is_midnight = 0 ORDER BY fetched_at DESC LIMIT ? OFFSET ?",
             (limit, offset),
         )
         return [dict(row) for row in cur.fetchall()]
 
 
 def notification_already_sent(month_begin: str, threshold: int) -> bool:
-    """True if we already sent ntfy for this month and threshold."""
     with get_conn() as conn:
         cur = conn.execute(
             "SELECT 1 FROM notifications WHERE month_begin = ? AND threshold = ?",
@@ -150,7 +207,6 @@ def notification_already_sent(month_begin: str, threshold: int) -> bool:
 
 
 def record_notification_sent(month_begin: str, threshold: int, sent_at: str) -> None:
-    """Record that ntfy was sent for this month/threshold (idempotent via UNIQUE)."""
     with get_conn() as conn:
         conn.execute(
             "INSERT OR IGNORE INTO notifications (month_begin, threshold, sent_at) VALUES (?, ?, ?)",
@@ -159,39 +215,32 @@ def record_notification_sent(month_begin: str, threshold: int, sent_at: str) -> 
 
 
 def get_daily_usage(limit_days: int = 31) -> list:
-    """
-    Daily usage per product: (volume at latest fetch of day) - (volume at midnight fetch of day).
-    Returns list of dicts: fetch_date, product_id, product_name, daily_usage_kb, daily_usage_gb.
-    Only days with both a midnight and a later fetch are included.
-    """
     with get_conn() as conn:
         cur = conn.execute(
             """
-            WITH fd AS (
-                SELECT id, fetched_at, product_id, product_name, month_accu_volume_kb, is_midnight,
-                       date(fetched_at) AS d
-                FROM fetches
+            WITH baseline AS (
+                SELECT product_id, date(fetched_at) AS d, month_accu_volume_kb AS vol
+                FROM baseline_fetches
                 WHERE fetched_at >= date('now', ?)
             ),
-            midnight AS (
-                SELECT product_id, d, month_accu_volume_kb AS vol
-                FROM fd WHERE is_midnight = 1
-            ),
-            latest AS (
-                SELECT product_id, d, product_name, month_accu_volume_kb AS vol
-                FROM fd f1
-                WHERE fetched_at = (SELECT max(fetched_at) FROM fd f2
-                                    WHERE f2.product_id = f1.product_id AND f2.d = f1.d)
+            latest_per_day AS (
+                SELECT product_id, date(fetched_at) AS d, product_name, month_accu_volume_kb AS vol
+                FROM fetches f1
+                WHERE fetched_at >= date('now', ?)
+                  AND fetched_at = (
+                      SELECT max(fetched_at) FROM fetches f2
+                      WHERE f2.product_id = f1.product_id AND date(f2.fetched_at) = date(f1.fetched_at)
+                  )
             )
             SELECT l.d AS fetch_date, l.product_id, l.product_name,
-                   (l.vol - m.vol) AS daily_usage_kb
-            FROM latest l
-            JOIN midnight m ON l.product_id = m.product_id AND l.d = m.d
-            WHERE l.vol >= m.vol
+                   (l.vol - b.vol) AS daily_usage_kb
+            FROM latest_per_day l
+            JOIN baseline b ON l.product_id = b.product_id AND l.d = b.d
+            WHERE l.vol >= b.vol
             ORDER BY l.d DESC, l.product_id
             LIMIT 200
             """,
-            (f"-{limit_days} days",),
+            (f"-{limit_days} days", f"-{limit_days} days"),
         )
         rows = cur.fetchall()
     out = []
@@ -203,5 +252,4 @@ def get_daily_usage(limit_days: int = 31) -> list:
     return out
 
 
-# Ensure schema exists as soon as db is imported
 init_db()

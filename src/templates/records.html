@@ -71,7 +71,7 @@
 
     <div class="section">
       <h2>Daily usage (last 31 days)</h2>
-      <p class="section-desc" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Usage from 00:00 baseline to latest fetch that day. Requires scheduled fetch at 00:00 and at least one other fetch per day.</p>
+      <p class="section-desc" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Usage from baseline to latest fetch that day. Requires the daily baseline run and at least one scheduled or manual fetch per day.</p>
       {% if daily_usage %}
       <table class="records-table">
         <thead>
@@ -92,7 +92,7 @@
         </tbody>
       </table>
       {% else %}
-      <p class="empty">No daily usage yet. Ensure a fetch runs at 00:00 and another at your configured hour.</p>
+      <p class="empty">No daily usage yet. Ensure the scheduled fetch runs and at least one fetch per day for the product.</p>
       {% endif %}
     </div>
 

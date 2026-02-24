@@ -286,7 +286,7 @@
       const ctx = canvas.getContext('2d');
       const datasets = [
         { label: 'Usage (GB)', data: data.usageData, borderColor: 'rgb(34, 197, 94)', backgroundColor: 'rgba(34, 197, 94, 0.1)', fill: true, tension: 0.2, pointRadius: 2, spanGaps: false },
-        { label: 'Limit (GB)', data: data.limitData, borderColor: 'rgb(234, 179, 8)', borderDash: [4, 4], fill: false, tension: 0, pointRadius: 0 }
+        { label: 'Limit (GB)', data: data.limitData, borderColor: 'rgb(234, 179, 8)', borderDash: [10, 3], fill: false, tension: 0, pointRadius: 0 }
       ];
       if (data.projectionData && data.exceedDay != null && data.exceedDay <= data.daysInMonth) {
         datasets.push({ label: 'Projected to exceed', data: data.projectionData, borderColor: 'rgba(34, 197, 94, 0.7)', borderDash: [6, 4], fill: false, tension: 0, pointRadius: 0, spanGaps: false });

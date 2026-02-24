@@ -4,12 +4,12 @@ A **Syrian Telecom Self Portal** monitor: fetches your internet package usage fr
 
 ## Features
 
-- **Automatic fetches** — Runs twice daily at configurable hours (default 8:00 and 20:00)
+- **Automatic fetches** — Daily baseline at 01:00 (for charts and daily usage; hidden from UI) and one configurable scheduled fetch (default 20:00)
 - **Usage dashboard** — View current usage %, monthly volume, limit, and projected exceed day
 - **History** — Per-month fetch history
 - **ntfy alerts** — Push notifications at usage thresholds (in-memory dedup per process; no DB storage)
 - **Protected web UI** — JWT-based login; admin username/password read from `data/netmon.conf`
-- **SQLite storage** — Database stores only **fetches**; all settings and auth live in `data/netmon.conf`
+- **SQLite storage** — `fetches` (scheduled + manual; shown in Records), `baseline_fetches` (daily 01:00; drives dashboard chart and daily usage). Settings and auth in `data/netmon.conf`.
 
 > **Note:** Run this on a **local server** (e.g. at home). The Syrian Telecom API only accepts requests from Syrian IPs, so the app must run on a machine inside Syria (same network as your connection). Do not run it on a cloud/VPS abroad — fetches will fail.
 
@@ -24,7 +24,7 @@ A **Syrian Telecom Self Portal** monitor: fetches your internet package usage fr
 
    ```bash
    mkdir -p data
-   cp env.example data/netmon.conf
+   cp data/netmon.conf.example data/netmon.conf
    # Edit data/netmon.conf: set JWT_SECRET, ADMIN_PASSWORD, Tarassul credentials, NTFY_URL, etc.
    ```
 
@@ -38,7 +38,7 @@ Open **http://localhost:5000**. Login with `ADMIN_USERNAME` / `ADMIN_PASSWORD` f
 
 Data and config live in `./data/` (database: `./data/data.db`, config: `./data/netmon.conf`).
 
-**Config file** (`data/netmon.conf`): same format as `.env` (KEY=VALUE, `#` comments). All options are optional; see `env.example` for the list.
+**Config file** (`data/netmon.conf`): same format as `.env` (KEY=VALUE, `#` comments). All options are optional; see `data/netmon.conf.example` for the list.
 
 ## Run locally (without Docker)
 
@@ -55,11 +55,11 @@ Data and config live in `./data/` (database: `./data/data.db`, config: `./data/n
 
    ```bash
    mkdir -p data
-   cp env.example data/netmon.conf
+   cp data/netmon.conf.example data/netmon.conf
    # Edit data/netmon.conf with your JWT_SECRET, admin password, Tarassul credentials, etc. DB is always data/data.db.
    ```
 
-   The app loads config from `data/netmon.conf` (project root = parent of `src/`). Same format as `.env` (KEY=VALUE). See `env.example` for all keys.
+   The app loads config from `data/netmon.conf` (project root = parent of `src/`). Same format as `.env` (KEY=VALUE). See `data/netmon.conf.example` for all keys.
 
 3. **Start the app** (run from the **project root** so `data/netmon.conf` is found)
 
@@ -67,7 +67,7 @@ Data and config live in `./data/` (database: `./data/data.db`, config: `./data/n
    python src/app.py
    ```
 
-   Then open **http://localhost:5000**. Ensure `data/netmon.conf` exists (the app creates it from `env.example` on first run if missing).
+   Then open **http://localhost:5000**. Ensure `data/netmon.conf` exists (the app creates it from `data/netmon.conf.example` on first run if missing).
 
 ## Configuration
 
@@ -79,11 +79,12 @@ All app settings are in **`data/netmon.conf`** (KEY=VALUE format). The Settings 
 | `TARASSUL_BASE_URL` | Syrian Telecom Self Portal API URL |
 | `TARASSUL_USERNAME` / `TARASSUL_PASSWORD` | Tarassul API credentials |
 | `TARASSUL_FID` / `TARASSUL_LANG` | Portal F_ID (default `3`) and language |
-| `FETCH_HOUR_1` / `FETCH_HOUR_2` | Daily fetch hours (0–23) |
+| `ENABLE_SCHEDULE` | Enable scheduled fetch (`true` / `false`). When false, only manual "Fetch now" runs. |
+| `FETCH_HOUR_2` | Scheduled fetch hour (0–23). Daily baseline runs at 01:00 (not configurable, hidden from UI) |
 | `NTFY_URL` / `NTFY_TOKEN` | ntfy topic URL and optional auth token |
 | `THEME` | UI theme: `dark` or `light` |
 
-The **database** (`data/data.db`) stores only **fetches** (usage history). Notifications are not stored; ntfy is sent at most once per threshold per month per process run (in-memory).
+The **database** (`data/data.db`) has **fetches** (scheduled + manual; shown in Records), **baseline_fetches** (daily 01:00; used for dashboard chart and daily usage calc), and **notifications** (ntfy sent per threshold per month). ntfy is sent only on scheduled/manual fetch, not on baseline.
 
 ## API (all require JWT cookie)
 
@@ -112,7 +113,7 @@ The **database** (`data/data.db`) stores only **fetches** (usage history). Notif
 | File | Purpose |
 |------|--------|
 | `app.py` | Flask app: routes, JWT login, dashboard, API |
-| `db.py` | SQLite schema, settings, fetches, notifications, password |
+| `db.py` | SQLite schema, fetches, notifications |
 | `fetcher.py` | Telecom API fetch, usage computation, ntfy notifications |
 | `scheduler.py` | APScheduler: twice-daily fetch jobs |
 | `templates/` | Login, dashboard, settings HTML |

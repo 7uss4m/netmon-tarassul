@@ -1,8 +1,3 @@
-"""
-Flask app: JWT login, dashboard, API for latest/history/settings/fetch.
-All settings and admin auth are read from data/netmon.conf. DB stores only fetches.
-Admin password is stored encrypted (ADMIN_PASSWORD_ENC) in netmon.conf; decryption key from ENCRYPTION_KEY or JWT_SECRET.
-"""
 import base64
 import hashlib
 import os
@@ -11,21 +6,21 @@ from pathlib import Path
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet, InvalidToken
 
-# Load config from data folder (project_root/data/netmon.conf)
+from config import DEFAULT_TARASSUL_BASE_URL
+
 _project_root = Path(__file__).resolve().parent.parent
 _config_path = _project_root / "data" / "netmon.conf"
+_example_path = _project_root / "data" / "netmon.conf.example"
 if not _config_path.exists():
     _config_path.parent.mkdir(parents=True, exist_ok=True)
-    _example = _project_root / "env.example"
-    if _example.exists():
-        shutil.copy(_example, _config_path)
+    if _example_path.exists():
+        shutil.copy(_example_path, _config_path)
     else:
         _config_path.touch()
 load_dotenv(_config_path)
 
 
 def _fernet():
-    """Fernet for encrypting admin password in netmon.conf. Key from ENCRYPTION_KEY or JWT_SECRET."""
     secret = os.environ.get("ENCRYPTION_KEY") or os.environ.get("JWT_SECRET") or "change-me-in-production"
     key = base64.urlsafe_b64encode(hashlib.sha256(secret.encode()).digest())
     return Fernet(key)
@@ -46,7 +41,6 @@ def _encrypt_password(plain: str) -> str:
     return _fernet().encrypt(plain.strip().encode()).decode()
 
 
-# If *_ENC is set in config, decrypt into env. Otherwise plain KEY= in file is used.
 def _resolve_encrypted(key_enc: str, key_plain: str) -> None:
     enc = (os.environ.get(key_enc) or "").strip()
     if enc:
@@ -58,12 +52,8 @@ _resolve_encrypted("ADMIN_PASSWORD_ENC", "ADMIN_PASSWORD")
 _resolve_encrypted("TARASSUL_PASSWORD_ENC", "TARASSUL_PASSWORD")
 _resolve_encrypted("NTFY_TOKEN_ENC", "NTFY_TOKEN")
 
-# Defaults for optional config: if missing, set in env and write to netmon.conf
-DEFAULT_TARASSUL_BASE_URL = "http://syriantelecom.com.sy/Sync/selfPortal.php"
-
 
 def _ensure_conf_default(key: str, default_value: str) -> None:
-    """If key is missing or empty in env, set it to default and write to netmon.conf."""
     if (os.environ.get(key) or "").strip():
         return
     os.environ[key] = default_value
@@ -76,6 +66,7 @@ def _ensure_conf_default(key: str, default_value: str) -> None:
 
 
 _ensure_conf_default("TARASSUL_BASE_URL", DEFAULT_TARASSUL_BASE_URL)
+_ensure_conf_default("ENABLE_SCHEDULE", "true")
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from flask_jwt_extended import (
@@ -94,7 +85,7 @@ import db
 from fetcher import run_fetch, send_ntfy_test
 from scheduler import start_scheduler, reschedule as scheduler_reschedule
 
-db.init_db()  # ensure fetches table exists (e.g. fresh volume in Docker)
+db.init_db()
 
 app = Flask(__name__)
 app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET", "change-me-in-production")
@@ -107,13 +98,11 @@ jwt = JWTManager(app)
 
 
 def _api_request() -> bool:
-    """True if the current request is to an API route (so we return JSON errors)."""
     return request.path.startswith("/api/")
 
 
 @app.errorhandler(500)
 def handle_500(e):
-    """Return JSON for API errors so the frontend never gets HTML."""
     if _api_request():
         return jsonify({"ok": False, "error": str(e) if str(e) else "Internal server error"}), 500
     raise
@@ -128,7 +117,6 @@ def handle_404(e):
 
 @jwt.unauthorized_loader
 def jwt_unauthorized_callback(_reason):
-    """Return JSON when JWT is missing/invalid so API never returns HTML."""
     if _api_request():
         return jsonify({"ok": False, "error": "Login required"}), 401
     from flask import redirect as flask_redirect
@@ -164,7 +152,6 @@ def _has_admin_password():
 
 
 def _update_netmon_conf_admin(username: str, password: str) -> None:
-    """Write or update ADMIN_USERNAME and ADMIN_PASSWORD_ENC (encrypted) in data/netmon.conf. Plain password is never stored."""
     path = _config_path
     path.parent.mkdir(parents=True, exist_ok=True)
     username = (username or "").strip().replace("\n", " ").replace("\r", " ")[:200]
@@ -186,12 +173,10 @@ def _update_netmon_conf_admin(username: str, password: str) -> None:
             lines = [line for line in content.splitlines() if drop_admin_lines(line)]
             path.write_text("\n".join(lines) + "\n" + "\n".join(new_lines) + "\n", encoding="utf-8")
             return
-    # Empty or missing: seed from env.example then add admin
-    example = _project_root / "env.example"
-    if example.exists():
+    if _example_path.exists():
         lines = [
             line
-            for line in example.read_text(encoding="utf-8", errors="replace").splitlines()
+            for line in _example_path.read_text(encoding="utf-8", errors="replace").splitlines()
             if drop_admin_lines(line)
         ]
         path.write_text("\n".join(lines) + "\n" + "\n".join(new_lines) + "\n", encoding="utf-8")
@@ -199,30 +184,24 @@ def _update_netmon_conf_admin(username: str, password: str) -> None:
         path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 
-# Keys that can be updated from the settings UI as plain text (no encryption)
 _SETTINGS_KEYS_PLAIN = (
     "TARASSUL_BASE_URL", "TARASSUL_USERNAME",
     "TARASSUL_FID", "TARASSUL_LANG",
-    "FETCH_HOUR_1", "FETCH_HOUR_2",
-    "NTFY_URL", "THEME",
+    "ENABLE_SCHEDULE", "FETCH_HOUR_2", "NTFY_URL", "THEME",
 )
 
 
 def _drop_line_if(line: str, prefixes: tuple) -> bool:
-    """Return True if line should be dropped (starts with any of the prefixes)."""
     s = line.strip()
     return any(s.startswith(p) for p in prefixes)
 
 
 def _update_netmon_conf_settings(updates: dict) -> None:
-    """Update given keys in data/netmon.conf. Secrets set from UI are stored encrypted (_ENC)."""
     path = _config_path
     path.parent.mkdir(parents=True, exist_ok=True)
     content = path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
     lines = content.splitlines()
     sanitize = lambda v: (v or "").strip().replace("\n", " ").replace("\r", " ")[:500]
-
-    # 1) Plain keys
     for key in _SETTINGS_KEYS_PLAIN:
         if key not in updates:
             continue
@@ -239,7 +218,6 @@ def _update_netmon_conf_settings(updates: dict) -> None:
         if not found:
             lines.append(new_line)
 
-    # 2) TARASSUL_PASSWORD from UI -> store as TARASSUL_PASSWORD_ENC; remove plain line
     raw_pwd = updates.get("TARASSUL_PASSWORD")
     if raw_pwd is not None and raw_pwd != "" and raw_pwd != "********":
         plain = sanitize(raw_pwd)
@@ -249,7 +227,6 @@ def _update_netmon_conf_settings(updates: dict) -> None:
             lines = [l for l in lines if not _drop_line_if(l, ("TARASSUL_PASSWORD=", "TARASSUL_PASSWORD_ENC="))]
             lines.append(f"TARASSUL_PASSWORD_ENC={enc}")
 
-    # 3) NTFY_TOKEN from UI -> store as NTFY_TOKEN_ENC; remove plain line
     raw_tok = updates.get("NTFY_TOKEN")
     if raw_tok is not None and raw_tok != "" and raw_tok != "********":
         plain = sanitize(raw_tok)
@@ -263,17 +240,19 @@ def _update_netmon_conf_settings(updates: dict) -> None:
 
 
 def _get_config():
-    """Current config from environment (netmon.conf). For display only; secrets are masked."""
     def _mask(env_key: str) -> str:
         v = (os.environ.get(env_key) or "").strip()
         return "********" if v else ""
+    def _schedule_enabled() -> bool:
+        v = (os.environ.get("ENABLE_SCHEDULE") or "true").strip().lower()
+        return v in ("true", "1", "yes")
     return {
         "telecom_base_url": (os.environ.get("TARASSUL_BASE_URL") or "").strip(),
         "telecom_fid": (os.environ.get("TARASSUL_FID") or "3").strip(),
         "telecom_username": (os.environ.get("TARASSUL_USERNAME") or "").strip(),
         "telecom_password": _mask("TARASSUL_PASSWORD"),
         "telecom_lang": (os.environ.get("TARASSUL_LANG") or "1").strip(),
-        "fetch_hour_1": (os.environ.get("FETCH_HOUR_1") or "8").strip(),
+        "schedule_enabled": _schedule_enabled(),
         "fetch_hour_2": (os.environ.get("FETCH_HOUR_2") or "20").strip(),
         "ntfy_url": (os.environ.get("NTFY_URL") or "").strip(),
         "ntfy_token": _mask("NTFY_TOKEN"),
@@ -389,13 +368,8 @@ def records_page():
     )
 
 
-@app.route("/api/latest")
-@jwt_required()
-def api_latest():
-    row = db.get_latest_fetch()
-    if not row:
-        return jsonify(None)
-    return jsonify({
+def _fetch_row_to_json(row: dict) -> dict:
+    return {
         "id": row["id"],
         "fetched_at": row["fetched_at"],
         "product_id": row["product_id"],
@@ -406,7 +380,16 @@ def api_latest():
         "exceed_day": row["exceed_day"],
         "month_begin": row["month_begin"],
         "month_end": row["month_end"],
-    })
+    }
+
+
+@app.route("/api/latest")
+@jwt_required()
+def api_latest():
+    row = db.get_latest_baseline_fetch()
+    if not row:
+        return jsonify(None)
+    return jsonify(_fetch_row_to_json(row))
 
 
 @app.route("/api/history")
@@ -414,26 +397,12 @@ def api_latest():
 def api_history():
     month_begin = request.args.get("month_begin", "")
     if not month_begin:
-        latest = db.get_latest_fetch()
+        latest = db.get_latest_baseline_fetch()
         month_begin = (latest or {}).get("month_begin") or ""
     if not month_begin:
         return jsonify([])
-    rows = db.get_history_for_month(month_begin)
-    return jsonify([
-        {
-            "id": r["id"],
-            "fetched_at": r["fetched_at"],
-            "product_id": r["product_id"],
-            "product_name": r["product_name"],
-            "month_accu_volume_kb": r["month_accu_volume_kb"],
-            "max_service_usage_mb": r["max_service_usage_mb"],
-            "usage_percent": r["usage_percent"],
-            "exceed_day": r["exceed_day"],
-            "month_begin": r["month_begin"],
-            "month_end": r["month_end"],
-        }
-        for r in rows
-    ])
+    rows = db.get_history_for_month_baseline(month_begin)
+    return jsonify([_fetch_row_to_json(r) for r in rows])
 
 
 @app.route("/api/fetch", methods=["POST"])
@@ -446,7 +415,6 @@ def api_fetch():
 @app.route("/api/settings", methods=["GET", "POST"])
 @jwt_required()
 def api_settings():
-    """GET: return current config. POST: update settings in netmon.conf and current process."""
     if request.method == "GET":
         return jsonify(_get_config())
     data = request.get_json(force=True, silent=True) or {}
@@ -456,7 +424,7 @@ def api_settings():
         "telecom_username": "TARASSUL_USERNAME",
         "telecom_password": "TARASSUL_PASSWORD",
         "telecom_lang": "TARASSUL_LANG",
-        "fetch_hour_1": "FETCH_HOUR_1",
+        "schedule_enabled": "ENABLE_SCHEDULE",
         "fetch_hour_2": "FETCH_HOUR_2",
         "ntfy_url": "NTFY_URL",
         "ntfy_token": "NTFY_TOKEN",
@@ -464,12 +432,15 @@ def api_settings():
     }
     updates = {}
     for field, env_key in key_to_field.items():
-        if field in data:
-            val = data[field]
-            if isinstance(val, str):
-                updates[env_key] = val
-            elif val is not None and env_key not in ("TARASSUL_PASSWORD", "NTFY_TOKEN"):
-                updates[env_key] = str(val).strip()
+        if field not in data:
+            continue
+        val = data[field]
+        if env_key == "ENABLE_SCHEDULE":
+            updates[env_key] = "true" if val in (True, "true", "1", "yes") else "false"
+        elif isinstance(val, str):
+            updates[env_key] = val
+        elif val is not None and env_key not in ("TARASSUL_PASSWORD", "NTFY_TOKEN"):
+            updates[env_key] = str(val).strip()
     try:
         _update_netmon_conf_settings(updates)
         scheduler_reschedule()
@@ -493,7 +464,6 @@ def api_settings_ntfy_test():
 @app.route("/api/settings/password", methods=["POST"])
 @jwt_required()
 def api_settings_password():
-    """Update admin password in netmon.conf (and current process). Only admin can change it."""
     data = request.get_json(force=True, silent=True) or {}
     new_password = (data.get("password") or "").strip()
     if not new_password:
@@ -508,7 +478,7 @@ def api_settings_password():
 
 def main():
     db.init_db()
-    start_scheduler()  # uses FETCH_HOUR_* from config
+    start_scheduler()
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=os.environ.get("FLASK_DEBUG", "false").lower() == "true")
 

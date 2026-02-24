@@ -1,7 +1,3 @@
-"""
-Fetch Syrian Telecom API, compute usage percentage and exceed day, store in DB, send ntfy notifications.
-All settings (Tarassul URL, credentials, ntfy) are read from config (netmon.conf → os.environ).
-"""
 import json
 import math
 import os
@@ -11,8 +7,7 @@ from urllib.parse import urlencode
 import requests
 
 import db
-
-DEFAULT_TARASSUL_BASE_URL = "http://syriantelecom.com.sy/Sync/selfPortal.php"
+from config import DEFAULT_TARASSUL_BASE_URL
 
 
 def _build_url() -> str:
@@ -26,7 +21,6 @@ def _build_url() -> str:
 
 
 def _compute_usage_and_exceed(product: dict) -> tuple[float | None, int | None, str, str]:
-    """Returns (usage_percent, exceed_day, month_begin, month_end)."""
     accu = product.get("AccumulateInfo") or {}
     max_mb = product.get("MaxServiceUsage")
     if max_mb is None or max_mb < 0:
@@ -82,7 +76,6 @@ def _send_ntfy(message: str) -> None:
 
 
 def send_ntfy_test(url: str, token: str = "") -> dict:
-    """Send a test notification. Returns {\"ok\": True} or {\"ok\": False, \"error\": \"...\"}."""
     url = (url or "").strip()
     if not url:
         return {"ok": False, "error": "ntfy URL is empty"}
@@ -110,7 +103,6 @@ def check_and_notify(
     limit_gb: float,
     usage_gb: float,
 ) -> None:
-    """Send ntfy at 25, 50, 75, 90, 100; at most once per (month, threshold), persisted in DB."""
     thresholds = [25, 50, 75, 90, 100]
     sent_at = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
     for t in thresholds:
@@ -127,11 +119,7 @@ def check_and_notify(
         _send_ntfy(msg)
 
 
-def run_fetch(is_midnight: bool = False) -> dict:
-    """
-    Fetch from Syrian Telecom API, parse, compute, store, notify.
-    Returns {"ok": True, "message": "..."} or {"ok": False, "error": "..."}.
-    """
+def run_fetch(is_baseline: bool = False) -> dict:
     url = _build_url()
     base = (os.environ.get("TARASSUL_BASE_URL") or "").strip() or DEFAULT_TARASSUL_BASE_URL
     user = (os.environ.get("TARASSUL_USERNAME") or "").strip()
@@ -157,7 +145,6 @@ def run_fetch(is_midnight: bool = False) -> dict:
     except (ValueError, json.JSONDecodeError) as e:
         return {"ok": False, "error": f"Invalid response: {e}"}
 
-    # API may return a list directly, an object wrapping the list, or sometimes a number (error/session code).
     if isinstance(data, list):
         products = data
     elif isinstance(data, dict):
@@ -210,19 +197,33 @@ def run_fetch(is_midnight: bool = False) -> dict:
         usage_gb = (month_vol_kb * 1024) / (1024 ** 3)
         month_key = month_begin[:7] if month_begin else ""
 
-        db.insert_fetch(
-            fetched_at=fetched_at,
-            product_id=str(product.get("ProductID", "")),
-            product_name=str(product.get("ProductName", "")),
-            month_accu_volume_kb=int(month_vol_kb),
-            max_service_usage_mb=int(max_mb),
-            usage_percent=round(usage_percent, 2),
-            exceed_day=exceed_day,
-            month_begin=month_begin,
-            month_end=month_end,
-            raw_json=json.dumps(product),
-            is_midnight=is_midnight,
-        )
-        check_and_notify(usage_percent, exceed_day, month_key, limit_gb, usage_gb)
+        if is_baseline:
+            db.insert_baseline_fetch(
+                fetched_at=fetched_at,
+                product_id=str(product.get("ProductID", "")),
+                product_name=str(product.get("ProductName", "")),
+                month_accu_volume_kb=int(month_vol_kb),
+                max_service_usage_mb=int(max_mb),
+                usage_percent=round(usage_percent, 2),
+                exceed_day=exceed_day,
+                month_begin=month_begin,
+                month_end=month_end,
+                raw_json=json.dumps(product),
+            )
+        else:
+            db.insert_fetch(
+                fetched_at=fetched_at,
+                product_id=str(product.get("ProductID", "")),
+                product_name=str(product.get("ProductName", "")),
+                month_accu_volume_kb=int(month_vol_kb),
+                max_service_usage_mb=int(max_mb),
+                usage_percent=round(usage_percent, 2),
+                exceed_day=exceed_day,
+                month_begin=month_begin,
+                month_end=month_end,
+                raw_json=json.dumps(product),
+                is_midnight=False,
+            )
+            check_and_notify(usage_percent, exceed_day, month_key, limit_gb, usage_gb)
 
     return {"ok": True, "message": "Fetched and stored successfully"}
