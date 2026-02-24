@@ -1,6 +1,9 @@
 import os
 import sqlite3
 from contextlib import contextmanager
+from datetime import date, timedelta
+from calendar import monthrange
+import math
 
 _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(_project_root, "data", "data.db")
@@ -250,6 +253,47 @@ def get_daily_usage(limit_days: int = 31) -> list:
         r["daily_usage_gb"] = round(kb / (1024 * 1024), 2)
         out.append(r)
     return out
+
+
+def get_daily_usage_for_product_month(product_id: str, month_begin: str, lookback_days: int = 60) -> list:
+    rows = get_daily_usage(limit_days=lookback_days)
+    month_prefix = (month_begin or "")[:7]
+    return [
+        r for r in rows
+        if r.get("product_id") == product_id and (r.get("fetch_date") or "").startswith(month_prefix)
+    ]
+
+
+def predict_exceed_day_from_daily_usage(
+    product_id: str,
+    month_begin: str,
+    current_usage_gb: float,
+    limit_gb: float,
+) -> int | None:
+    if not month_begin or current_usage_gb >= limit_gb:
+        return None
+    history = get_daily_usage_for_product_month(product_id, month_begin)
+    if not history:
+        return None
+    avg_daily = sum(r.get("daily_usage_gb") or 0 for r in history) / len(history)
+    if avg_daily <= 0:
+        return None
+    remaining_gb = max(0.0, limit_gb - current_usage_gb)
+    days_needed = math.ceil(remaining_gb / avg_daily)
+    try:
+        start = date.fromisoformat(month_begin)
+    except ValueError:
+        return None
+    year, month = start.year, start.month
+    days_in_month = monthrange(year, month)[1]
+    today = date.today()
+    if today < start:
+        today = start
+    end = date(year, month, days_in_month)
+    exceed_date = today + timedelta(days=days_needed)
+    if exceed_date > end:
+        exceed_date = end
+    return exceed_date.day
 
 
 init_db()

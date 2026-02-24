@@ -196,11 +196,25 @@ def run_fetch(is_baseline: bool = False) -> dict:
         limit_gb = (max_mb * 1024 * 1024) / (1024 ** 3)
         usage_gb = (month_vol_kb * 1024) / (1024 ** 3)
         month_key = month_begin[:7] if month_begin else ""
+        product_id_str = str(product.get("ProductID", ""))
+
+        # Refine exceed_day prediction using daily_usage history if available
+        try:
+            predicted = db.predict_exceed_day_from_daily_usage(
+                product_id=product_id_str,
+                month_begin=month_begin,
+                current_usage_gb=usage_gb,
+                limit_gb=limit_gb,
+            )
+        except Exception:
+            predicted = None
+        if predicted is not None:
+            exceed_day = predicted
 
         if is_baseline:
             db.insert_baseline_fetch(
                 fetched_at=fetched_at,
-                product_id=str(product.get("ProductID", "")),
+                product_id=product_id_str,
                 product_name=str(product.get("ProductName", "")),
                 month_accu_volume_kb=int(month_vol_kb),
                 max_service_usage_mb=int(max_mb),
@@ -213,7 +227,7 @@ def run_fetch(is_baseline: bool = False) -> dict:
         else:
             db.insert_fetch(
                 fetched_at=fetched_at,
-                product_id=str(product.get("ProductID", "")),
+                product_id=product_id_str,
                 product_name=str(product.get("ProductName", "")),
                 month_accu_volume_kb=int(month_vol_kb),
                 max_service_usage_mb=int(max_mb),
