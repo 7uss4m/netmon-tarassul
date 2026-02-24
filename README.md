@@ -119,6 +119,21 @@ The **database** (`data/data.db`) has **fetches** (scheduled + manual; shown in 
 | `templates/` | Login, dashboard, settings HTML |
 
 
+## TODO
+
+- [ ] Support extra internet packages in calculations  
+  - [ ] Detect active extra/top-up packages from the Tarassul API response  
+  - [ ] Store extra package quota/usage in the database (baseline + fetches)  
+  - [ ] Adjust total limit and usage so charts, daily usage, and exceed-day prediction include extra packages  
+  - [ ] Show extra packages and their impact (e.g. new total limit) in the dashboard card and records
+
+- [ ] Integrate notifications with Telegram  
+  - [ ] Add Telegram bot token and chat ID to `data/netmon.conf` (with encrypted storage similar to `NTFY_TOKEN`)  
+  - [ ] Implement a `send_telegram(message)` helper alongside ntfy  
+  - [ ] Make notification sending pluggable: ntfy, Telegram, or both, based on config  
+  - [ ] Document Telegram setup in `README.md` (creating bot, getting chat ID, required config keys)
+
+
 ## License
 
 Use and modify as you like.
